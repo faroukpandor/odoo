@@ -67,38 +67,38 @@
 ## Deployment Day
 
 ### 1. Verify Staging (30 min before)
-```bash
+\`\`\`bash
 # Verify staging environment is healthy
 curl https://staging.yourapp.com/api/health
 
 # Check database connectivity
 # Check all critical APIs responding
 # Verify monitoring tools are collecting data
-```
+\`\`\`
 
 ### 2. Create Backup
-```bash
+\`\`\`bash
 # Supabase: Create manual backup
 # Vercel: Check auto-backup is enabled
 # Document backup location
-```
+\`\`\`
 
 ### 3. Deploy to Production
-```bash
+\`\`\`bash
 # Option 1: Push to main branch (auto-deploy via Vercel)
 git push origin main
 
 # Option 2: Manual deployment via Vercel dashboard
 # Settings > Deployments > Deploy
-```
+\`\`\`
 
 ### 4. Verify Deployment (15 min)
 - [ ] Deployment shows "Ready" in Vercel
 - [ ] No failed builds in build logs
 - [ ] Health check endpoint returns 200
-  ```bash
+  \`\`\`bash
   curl https://app.yourapp.com/api/health
-  ```
+  \`\`\`
 - [ ] Critical user paths tested manually
 - [ ] Monitoring data flowing in
 - [ ] Error rate normal (< 0.1%)
@@ -146,9 +146,9 @@ git push origin main
 2. **Identify root cause** - Check logs, errors
 3. **Decide:** Fix forward vs. rollback
 4. **If rollback:** Revert to previous commit
-   ```bash
+   \`\`\`bash
    # In Vercel dashboard: Deployments > Select previous > Promote
-   ```
+   \`\`\`
 5. **Test rollback** - Verify previous version works
 6. **Communicate** - Update customers
 7. **Investigate** - Root cause analysis

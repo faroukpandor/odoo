@@ -13,9 +13,9 @@ Test individual functions and components in isolation.
 - React Testing Library
 
 **Example:**
-```bash
+\`\`\`bash
 npm test -- --coverage
-```
+\`\`\`
 
 **Test Locations:** `__tests__` or `.test.ts/.test.tsx` files
 
@@ -35,9 +35,9 @@ Test how components/modules work together.
 - Multi-step workflows
 
 **Example:**
-```bash
+\`\`\`bash
 npm run test:integration
-```
+\`\`\`
 
 ### 3. E2E Tests (20%)
 Test complete user workflows.
@@ -81,10 +81,10 @@ Measure and optimize speed.
 - npm audit
 
 **Run Before Deployment:**
-```bash
+\`\`\`bash
 npm audit
 npm run security-check
-```
+\`\`\`
 
 ## Testing Checklist
 
@@ -112,23 +112,23 @@ npm run security-check
 ## Setting Up Testing
 
 ### 1. Install Testing Dependencies
-```bash
+\`\`\`bash
 npm install --save-dev jest @testing-library/react @testing-library/jest-dom
 npm install --save-dev playwright
-```
+\`\`\`
 
 ### 2. Create Jest Configuration
-```js
+\`\`\`js
 // jest.config.js
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'jsdom',
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
 }
-```
+\`\`\`
 
 ### 3. Add Test Scripts
-```json
+\`\`\`json
 {
   "scripts": {
     "test": "jest --watch",
@@ -137,7 +137,7 @@ module.exports = {
     "security-check": "npm audit && snyk test"
   }
 }
-```
+\`\`\`
 
 ## Test Coverage Targets
 

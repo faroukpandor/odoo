@@ -79,29 +79,29 @@
 ## Pre-Deployment Security Audit
 
 ### 1. Code Review
-```bash
+\`\`\`bash
 # Check for secrets
 git log -p | grep -i "password\|token\|key\|secret"
 
 # Run security audit
 npm audit --production
 snyk test --severity=high
-```
+\`\`\`
 
 ### 2. Dependency Check
-```bash
+\`\`\`bash
 npm outdated
 npm audit fix
-```
+\`\`\`
 
 ### 3. Configuration Verification
-```bash
+\`\`\`bash
 # Verify no .env files in git
 git ls-files | grep ".env"
 
 # Check for exposed keys
 grep -r "SUPABASE_SERVICE_ROLE_KEY" --include="*.ts" --include="*.tsx"
-```
+\`\`\`
 
 ### 4. Environment Setup
 - [ ] Production env vars set in Vercel

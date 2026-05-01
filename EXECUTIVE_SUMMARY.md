@@ -89,16 +89,16 @@ A **complete, disruptive ERP platform** that competes with Odoo, SAP, and Micros
 ## Deployment: 3 Simple Steps
 
 ### 1. Configure Environment (5 min)
-```bash
+\`\`\`bash
 # Set environment variables in Vercel dashboard:
 NEXT_PUBLIC_SUPABASE_URL=your-url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-key
 SUPABASE_SERVICE_ROLE_KEY=your-key
 XAI_API_KEY=your-grok-key (optional)
-```
+\`\`\`
 
 ### 2. Initialize Database (5 min)
-```bash
+\`\`\`bash
 # Run 4 SQL migration scripts:
 # 001_create_erp_schema.sql
 # 002_create_profiles_trigger.sql
@@ -106,14 +106,14 @@ XAI_API_KEY=your-grok-key (optional)
 # 004_add_collaboration_tables.sql
 
 # OR use automated setup wizard in app
-```
+\`\`\`
 
 ### 3. Deploy (1 click)
-```bash
+\`\`\`bash
 # Push to GitHub main branch
 # Vercel auto-deploys
 # Done!
-```
+\`\`\`
 
 ---
 
@@ -237,7 +237,7 @@ The enterprise software market is worth **$50+ billion annually**:
 ## Financial Projections
 
 ### Conservative Scenario
-```
+\`\`\`
 Month 1: 100 beta users, 10 paying ($100/user)
          Revenue: $1,000
 
@@ -249,7 +249,7 @@ Month 6: 2,000 users, 200 paying
 
 Month 12: 10,000 users, 1,000 paying
           Revenue: $100,000
-```
+\`\`\`
 
 ### Growth Assumption
 - 50% month-over-month growth

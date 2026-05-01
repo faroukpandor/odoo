@@ -5,7 +5,7 @@ This guide ensures your Nexus ERP is production-ready, secure, scalable, and mai
 
 ## Architecture Overview
 
-```
+\`\`\`
 ┌─────────────────────────────────────────────────────────┐
 │                    Vercel (Edge Network)                 │
 │  Next.js App Router, API Routes, Serverless Functions   │
@@ -18,7 +18,7 @@ This guide ensures your Nexus ERP is production-ready, secure, scalable, and mai
 │  ✓ Built-in Backups                                     │
 │  ✓ Auto-scaling                                         │
 └─────────────────────────────────────────────────────────┘
-```
+\`\`\`
 
 ## Production-Ready Features Implemented
 
@@ -101,7 +101,7 @@ This guide ensures your Nexus ERP is production-ready, secure, scalable, and mai
 ## Pre-Deployment Verification
 
 ### Step 1: Environment Setup (15 min)
-```bash
+\`\`\`bash
 # 1. Copy .env.example to .env.local and fill values
 cp .env.example .env.local
 
@@ -114,10 +114,10 @@ npm run dev
 
 # 4. Verify health endpoint
 curl http://localhost:3000/api/health
-```
+\`\`\`
 
 ### Step 2: Security Audit (30 min)
-```bash
+\`\`\`bash
 # Check dependencies for vulnerabilities
 npm audit --production
 
@@ -126,10 +126,10 @@ git log -p | grep -i "password\|token\|key"
 
 # Review security configuration
 grep -r "secret\|password" lib/
-```
+\`\`\`
 
 ### Step 3: Database Verification (20 min)
-```bash
+\`\`\`bash
 # In Supabase dashboard:
 # 1. Verify all 4 migration scripts executed
 # 2. Check RLS policies are enabled
@@ -138,10 +138,10 @@ grep -r "secret\|password" lib/
 
 SELECT table_name FROM information_schema.tables 
 WHERE table_schema = 'public';
-```
+\`\`\`
 
 ### Step 4: Performance Testing (30 min)
-```bash
+\`\`\`bash
 # Build and analyze
 npm run build
 
@@ -150,10 +150,10 @@ npm run analyze
 
 # Lighthouse score should be > 90
 npm run lighthouse
-```
+\`\`\`
 
 ### Step 5: Testing (1 hour)
-```bash
+\`\`\`bash
 # Run all tests
 npm test -- --coverage
 
@@ -162,22 +162,22 @@ npm run test:e2e
 
 # Security tests
 npm run security-check
-```
+\`\`\`
 
 ## Deployment to Vercel
 
 ### Option 1: Automatic (GitHub)
-```bash
+\`\`\`bash
 1. Push code to GitHub main branch
 2. Vercel auto-deploys
 3. Verify in dashboard
-```
+\`\`\`
 
 ### Option 2: Manual (Vercel CLI)
-```bash
+\`\`\`bash
 npm i -g vercel
 vercel --prod
-```
+\`\`\`
 
 ### Step-by-Step Vercel Deployment:
 
@@ -201,10 +201,10 @@ vercel --prod
    - View deployment URL
 
 4. **Verify Deployment**
-   ```bash
+   \`\`\`bash
    curl https://[your-app].vercel.app/api/health
    # Should return {"status": "healthy", ...}
-   ```
+   \`\`\`
 
 ## Post-Deployment Checklist
 
@@ -277,7 +277,7 @@ vercel --prod
    - Status page
 
 ### Setup Sentry (5 min):
-```bash
+\`\`\`bash
 npm install @sentry/nextjs
 
 # Add to next.config.mjs:
@@ -285,7 +285,7 @@ import { withSentryConfig } from "@sentry/nextjs";
 
 # Set environment variable:
 # NEXT_PUBLIC_SENTRY_DSN=your-dsn
-```
+\`\`\`
 
 ## Rollback Procedure
 
@@ -297,11 +297,11 @@ If critical issues occur:
    - Minor issue → Fix forward
 
 2. **Rollback steps:**
-   ```bash
+   \`\`\`bash
    # In Vercel dashboard:
    # Deployments > Previous Version > Promote
    # OR git revert + push to main
-   ```
+   \`\`\`
 
 3. **Notify team:**
    - Update status page
@@ -344,7 +344,7 @@ If critical issues occur:
 
 ## Key Metrics to Monitor
 
-```
+\`\`\`
 Performance:
   ✓ Page Load Time: < 2 seconds
   ✓ API Response Time: < 200ms (P95)
@@ -362,7 +362,7 @@ Security:
   ✓ Auth Bypass Attempts: 0
   ✓ Data Breach Incidents: 0
   ✓ SSL Certificate: Valid, > 90 days
-```
+\`\`\`
 
 ## Getting Help
 
