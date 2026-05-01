@@ -1,51 +1,27 @@
-# sphinx build directories
-_build/
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-# dotfiles
-.*
-!.gitignore
-!.github
-!.mailmap
-# compiled python files
-*.py[co]
-__pycache__/
-# setup.py egg_info
-*.egg-info
-# emacs backup files
-*~
-# hg stuff
-*.orig
-status
-# odoo filestore
-odoo/filestore
-# maintenance migration scripts
-odoo/addons/base/maintenance
-# window installation config file
-/odoo.conf
+# dependencies
+/node_modules
 
-# generated for windows installer?
-install/win32/*.bat
-install/win32/meta.py
+# next.js
+/.next/
+/out/
 
-# needed only when building for win32
-setup/win32/static/less/
-setup/win32/static/wkhtmltopdf/
-setup/win32/static/postgresql*.exe
+# production
+/build
 
-# js tooling
-node_modules
-jsconfig.json
-tsconfig.json
-package-lock.json
-package.json
-.husky
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
 
-# various virtualenv
-/bin/
-/build/
-/dist/
-/include/
-/lib/
-/man/
-/share/
-/src/
+# env files
+.env*
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
