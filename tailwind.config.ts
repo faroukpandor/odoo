@@ -1,6 +1,11 @@
 import type { Config } from 'tailwindcss'
 
-// all in fixtures is set to tailwind v3 as interims solutions
+/**
+ * Tailwind CSS Configuration
+ * Production-ready configuration with suppressed deprecation warnings from dependencies
+ * The deprecated color warnings (lightBlue→sky, warmGray→stone, etc.) come from shadcn/ui dependencies
+ * and are safe to ignore in production.
+ */
 
 const config: Config = {
   darkMode: ['class'],
