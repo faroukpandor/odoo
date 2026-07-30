@@ -31,8 +31,9 @@ npm run build    # -> dist/
 
 ## Deploy free
 
-**GitHub Pages** — already wired: `.github/workflows/nova-pages.yml` builds on push and
-publishes `nova/dist`. Enable it once in *Settings → Pages → Source: GitHub Actions*.
+**GitHub Pages** — copy `nova/deploy/github-pages.yml` to `.github/workflows/nova-pages.yml`
+and push it (GitHub blocks apps from creating workflow files, so this one step is manual).
+Then enable *Settings → Pages → Source: GitHub Actions*. It builds on push and publishes `nova/dist`.
 
 **Cloudflare Pages / Vercel** — connect the repo and use:
 - Root directory: `nova`
