@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useDB, update, uid, today, money, Bill, BillLine, Expense, getDB } from '../lib/db'
 import { billTotals, expenseTotals } from '../lib/accounting'
 import { Modal } from './CRM'
+import { useToast } from '../lib/ui'
 
 const addDays = (d: string, n: number) => {
   const x = new Date(d); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10)
@@ -17,6 +18,7 @@ const nextBillNumber = () => {
 
 export default function Purchases() {
   const db = useDB()
+  const toast = useToast()
   const [tab, setTab] = useState<'bills' | 'expenses'>('bills')
   const [bill, setBill] = useState<Bill | null>(null)
   const [exp, setExp] = useState<Expense | null>(null)
@@ -46,6 +48,7 @@ export default function Purchases() {
         const i = d.bills.findIndex(x => x.id === b.id); if (i >= 0) d.bills[i] = b
       } else d.bills.unshift({ ...b, id: uid() })
     })
+    toast(`${b.number} saved`)
     setBill(null)
   }
 
@@ -55,6 +58,7 @@ export default function Purchases() {
         const i = d.expenses.findIndex(x => x.id === e.id); if (i >= 0) d.expenses[i] = e
       } else d.expenses.unshift({ ...e, id: uid() })
     })
+    toast('Expense saved')
     setExp(null)
   }
 

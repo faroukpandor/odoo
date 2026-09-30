@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import { useDB } from './lib/db'
+import CommandPalette from './components/CommandPalette'
 
 const nav = [
   { to: '/', label: 'Dashboard', icon: '◎', end: true },
@@ -32,11 +33,15 @@ export default function App() {
             </NavLink>
           ))}
         </nav>
+        <button className="cmdk" onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }))}>
+          Search <kbd>Ctrl</kbd><kbd>K</kbd>
+        </button>
         <div className="side-foot">
           <span className="dot" /> Offline-first · no server
         </div>
       </aside>
       <main className="main"><Outlet /></main>
+      <CommandPalette />
     </div>
   )
 }

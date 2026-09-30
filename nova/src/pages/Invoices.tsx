@@ -4,6 +4,7 @@ import {
   isOverdue, Invoice, InvoiceLine, getDB,
 } from '../lib/db'
 import { Modal } from './CRM'
+import { useToast } from '../lib/ui'
 
 const addDays = (d: string, n: number) => {
   const x = new Date(d); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10)
@@ -11,6 +12,7 @@ const addDays = (d: string, n: number) => {
 
 export default function Invoices() {
   const db = useDB()
+  const toast = useToast()
   const [edit, setEdit] = useState<Invoice | null>(null)
   const [view, setView] = useState<Invoice | null>(null)
 
@@ -38,11 +40,14 @@ export default function Invoices() {
         })
       }
     })
+    toast(inv.id ? `${inv.number} updated` : `${inv.number} created`)
     setEdit(null)
   }
 
-  const setStatus = (id: string, status: Invoice['status']) =>
+  const setStatus = (id: string, status: Invoice['status']) => {
     update(d => { const i = d.invoices.find(x => x.id === id); if (i) i.status = status })
+    toast(`Invoice marked ${status}`)
+  }
 
   return (
     <>

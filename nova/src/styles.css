@@ -134,3 +134,37 @@ label.inline { flex-direction: row; align-items: center; gap: 6px; font-size: 12
 label.inline input { width: auto; }
 .meter { background: #0e1729; border-radius: 99px; height: 8px; overflow: hidden; }
 .meter i { display: block; height: 100%; background: linear-gradient(90deg, var(--brand), #9b5bff); }
+
+.cmdk { background: #0e1729; border: 1px solid var(--line); color: var(--muted);
+  padding: 7px 10px; border-radius: 9px; cursor: pointer; font-size: 12px;
+  display: flex; align-items: center; gap: 5px; width: 100%; }
+.cmdk:hover { border-color: var(--brand); color: var(--txt); }
+kbd { background: var(--panel2); border: 1px solid var(--line); border-radius: 4px;
+  padding: 1px 5px; font-size: 10px; font-family: inherit; }
+
+.palette-overlay { align-items: flex-start; padding-top: 12vh; }
+.palette { background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+  width: min(620px, 100%); overflow: hidden; box-shadow: 0 24px 60px rgba(0,0,0,.5); }
+.palette > input { border: 0; border-bottom: 1px solid var(--line); border-radius: 0;
+  padding: 16px; font-size: 16px; background: transparent; }
+.palette > input:focus { outline: none; }
+.palette-list { list-style: none; margin: 0; padding: 6px; max-height: 48vh; overflow: auto; }
+.palette-list li { display: grid; grid-template-columns: 92px 1fr auto; gap: 10px;
+  align-items: center; padding: 9px 10px; border-radius: 9px; cursor: pointer; font-size: 14px; }
+.palette-list li.on { background: rgba(91,140,255,.16); }
+.pgroup { font-size: 10px; text-transform: uppercase; color: var(--muted); letter-spacing: .05em; }
+.phint { color: var(--muted); font-size: 12px; }
+.palette-foot { padding: 9px 14px; border-top: 1px solid var(--line); }
+
+.toasts { position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: column;
+  gap: 8px; z-index: 100; }
+.toast { background: var(--panel2); border: 1px solid var(--line); border-left: 3px solid var(--brand);
+  padding: 11px 16px; border-radius: 9px; font-size: 14px; box-shadow: 0 8px 24px rgba(0,0,0,.4);
+  animation: slidein .18s ease; }
+.toast.ok { border-left-color: var(--ok); } .toast.bad { border-left-color: var(--bad); }
+@keyframes slidein { from { opacity: 0; transform: translateY(8px); } }
+
+.crash { max-width: 640px; margin: 12vh auto; padding: 28px; background: var(--panel);
+  border: 1px solid var(--line); border-radius: 14px; }
+.crash pre { background: #0e1729; padding: 12px; border-radius: 9px; overflow: auto;
+  font-size: 12px; color: var(--bad); }

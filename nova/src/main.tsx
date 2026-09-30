@@ -11,12 +11,15 @@ import Accounting from './pages/Accounting'
 import Reports from './pages/Reports'
 import Settings from './pages/Settings'
 import { initDB } from './lib/db'
+import { ErrorBoundary, ToastHost } from './lib/ui'
 import './styles.css'
 
 function start() {
   createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
       {/* HashRouter => deep links work on GitHub Pages / any static host */}
+      <ErrorBoundary>
+        <ToastHost>
       <HashRouter>
         <Routes>
           <Route path="/" element={<App />}>
@@ -32,6 +35,8 @@ function start() {
           </Route>
         </Routes>
       </HashRouter>
+        </ToastHost>
+      </ErrorBoundary>
     </React.StrictMode>,
   )
 }

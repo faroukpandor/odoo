@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useDB, update, uid, today, money, Partner } from '../lib/db'
+import { useToast } from '../lib/ui'
 
 const STAGES: Partner['stage'][] = ['lead', 'qualified', 'proposal', 'won', 'lost']
 
@@ -10,6 +11,7 @@ const blank = (): Partner => ({
 
 export default function CRM() {
   const db = useDB()
+  const toast = useToast()
   const [q, setQ] = useState('')
   const [edit, setEdit] = useState<Partner | null>(null)
 
@@ -28,6 +30,7 @@ export default function CRM() {
         d.partners.unshift({ ...p, id: uid() })
       }
     })
+    toast(`${p.name} saved`)
     setEdit(null)
   }
 

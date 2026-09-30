@@ -1,10 +1,12 @@
 import { useRef, useState } from 'react'
 import { useDB, update, exportJSON, importJSON, resetDB } from '../lib/db'
+import { useToast } from '../lib/ui'
 
 export default function Settings() {
   const db = useDB()
   const file = useRef<HTMLInputElement>(null)
   const [msg, setMsg] = useState('')
+  const toast = useToast()
 
   const set = (patch: Partial<typeof db.company>) =>
     update(d => { d.company = { ...d.company, ...patch } })
@@ -35,15 +37,15 @@ export default function Settings() {
         <h2>Data portability</h2>
         <p className="muted">Full database export/import as plain JSON. No lock-in, ever.</p>
         <div className="form-actions" style={{ justifyContent: 'flex-start' }}>
-          <button className="btn primary" onClick={exportJSON}>Export backup</button>
+          <button className="btn primary" onClick={() => { exportJSON(); toast('Backup downloaded') }}>Export backup</button>
           <button className="btn" onClick={() => file.current?.click()}>Import backup</button>
           <button className="btn danger" onClick={() => {
-            if (confirm('Reset all data to the demo dataset?')) { resetDB(); setMsg('Data reset.') }
+            if (confirm('Reset all data to the demo dataset?')) { resetDB(); toast('Data reset to demo', 'info') }
           }}>Reset demo data</button>
           <input ref={file} type="file" accept="application/json" hidden onChange={async e => {
             const f = e.target.files?.[0]; if (!f) return
-            try { await importJSON(f); setMsg('Backup imported.') }
-            catch (err) { setMsg('Import failed: ' + (err as Error).message) }
+            try { await importJSON(f); toast('Backup imported'); setMsg('') }
+            catch (err) { toast('Import failed: ' + (err as Error).message, 'bad') }
           }} />
         </div>
         {msg && <p className="ok">{msg}</p>}
