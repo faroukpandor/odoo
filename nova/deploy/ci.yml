@@ -1,0 +1,26 @@
+# Copy to .github/workflows/nova-ci.yml
+name: Nova CI
+
+on:
+  push:
+    paths: ['nova/**']
+  pull_request:
+    paths: ['nova/**']
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: nova
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: nova/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
