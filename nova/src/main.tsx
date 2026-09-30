@@ -11,6 +11,7 @@ import Accounting from './pages/Accounting'
 import Reports from './pages/Reports'
 import Settings from './pages/Settings'
 import { initDB } from './lib/db'
+import { autoSnapshot } from './lib/backup'
 import { ErrorBoundary, ToastHost } from './lib/ui'
 import './styles.css'
 
@@ -42,7 +43,11 @@ function start() {
 }
 
 // Hydrate from IndexedDB first, then render; never block boot on storage errors.
-initDB().finally(start)
+initDB().finally(() => {
+  start()
+  // Restore points are created in the background, never blocking first paint.
+  void autoSnapshot()
+})
 
 // Installable, fully offline PWA.
 if ('serviceWorker' in navigator && import.meta.env.PROD) {

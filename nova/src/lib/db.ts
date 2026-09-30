@@ -238,10 +238,13 @@ const IDB_STORE = 'kv'
 function idb(): Promise<IDBDatabase | null> {
   return new Promise(resolve => {
     if (typeof indexedDB === 'undefined') return resolve(null)
-    const req = indexedDB.open(IDB_NAME, 1)
+    // Version 2 also provisions the snapshots store used by lib/backup.ts,
+    // so either module can be the first to open the database.
+    const req = indexedDB.open(IDB_NAME, 2)
     req.onupgradeneeded = () => {
       const d = req.result
       if (!d.objectStoreNames.contains(IDB_STORE)) d.createObjectStore(IDB_STORE)
+      if (!d.objectStoreNames.contains('snapshots')) d.createObjectStore('snapshots', { keyPath: 'id' })
     }
     req.onsuccess = () => resolve(req.result)
     req.onerror = () => resolve(null)
