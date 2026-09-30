@@ -1,8 +1,10 @@
 import { Link } from 'react-router-dom'
 import { useDB, invoiceTotals, money, isOverdue, stockOf } from '../lib/db'
+import { billTotals, expenseTotals, profitAndLoss } from '../lib/accounting'
 
 export default function Dashboard() {
   const db = useDB()
+  const today = new Date().toISOString().slice(0, 10)
 
   const invoiced = db.invoices.reduce((s, i) => s + invoiceTotals(i).total, 0)
   const paid = db.invoices.filter(i => i.status === 'paid')
@@ -17,6 +19,12 @@ export default function Dashboard() {
 
   const low = db.products.filter(p => stockOf(db, p.id) <= p.reorderPoint)
   const stockValue = db.products.reduce((s, p) => s + stockOf(db, p.id) * p.cost, 0)
+
+  const payables = db.bills.filter(b => b.status !== 'paid')
+    .reduce((s, b) => s + billTotals(b).total, 0)
+  const spend = db.bills.reduce((s, b) => s + billTotals(b).total, 0)
+    + db.expenses.reduce((s, e) => s + expenseTotals(e).total, 0)
+  const pl = profitAndLoss(db)
 
   const byMonth: Record<string, number> = {}
   db.invoices.forEach(i => {
@@ -40,6 +48,9 @@ export default function Dashboard() {
         <Kpi label="Outstanding" value={money(outstanding)} tone="warn" />
         <Kpi label="Overdue" value={money(overdue)} tone={overdue > 0 ? 'bad' : 'ok'} />
         <Kpi label="Open pipeline" value={money(pipeline)} tone="ok" />
+        <Kpi label="Net profit" value={money(pl.net)} tone={pl.net >= 0 ? 'ok' : 'bad'} />
+        <Kpi label="Owed to vendors" value={money(payables)} tone={payables ? 'warn' : 'ok'} />
+        <Kpi label="Total spend" value={money(spend)} />
         <Kpi label="Stock value (cost)" value={money(stockValue)} />
         <Kpi label="Low-stock items" value={String(low.length)} tone={low.length ? 'bad' : 'ok'} />
       </div>
@@ -69,6 +80,14 @@ export default function Dashboard() {
             {low.map(p => (
               <li key={p.id}><b className="warn">Reorder</b> {p.name} · {stockOf(db, p.id)} {p.uom} left
                 <Link className="link" to="/inventory"> open</Link></li>
+            ))}
+            {db.bills.filter(b => b.status !== 'paid' && b.dueDate < today).map(b => (
+              <li key={b.id}><b className="warn">Bill due</b> {b.number} · {money(billTotals(b).total)}
+                <Link className="link" to="/purchases"> open</Link></li>
+            ))}
+            {db.expenses.filter(e => e.paidBy === 'employee' && !e.reimbursed).map(e => (
+              <li key={e.id}><b className="warn">Reimburse</b> {e.label} · {money(expenseTotals(e).total)}
+                <Link className="link" to="/purchases"> open</Link></li>
             ))}
             {db.partners.filter(p => p.stage === 'proposal').map(p => (
               <li key={p.id}><b className="ok">Follow up</b> {p.name} · {money(p.value)}

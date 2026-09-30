@@ -61,6 +61,59 @@ export interface StockMove {
   date: string
 }
 
+export interface BillLine {
+  label: string
+  qty: number
+  price: number
+  taxRate: number
+  account: string      // expense or inventory account code
+}
+
+export interface Bill {
+  id: ID
+  number: string
+  partnerId: ID | null
+  date: string
+  dueDate: string
+  status: 'draft' | 'received' | 'paid'
+  lines: BillLine[]
+  currency: string
+  note: string
+}
+
+export interface Expense {
+  id: ID
+  date: string
+  label: string
+  amount: number
+  taxRate: number
+  account: string
+  paidBy: 'company' | 'employee'
+  reimbursed: boolean
+  note: string
+}
+
+export interface Account {
+  code: string
+  name: string
+  type: 'asset' | 'liability' | 'equity' | 'income' | 'expense'
+}
+
+export interface JournalLine {
+  account: string
+  debit: number
+  credit: number
+}
+
+export interface JournalEntry {
+  id: ID
+  date: string
+  ref: string
+  memo: string
+  source: 'invoice' | 'bill' | 'expense' | 'manual'
+  lines: JournalLine[]
+}
+
 export interface Company {
   name: string
   email: string
@@ -77,6 +130,10 @@ export interface DB {
   products: Product[]
   invoices: Invoice[]
   moves: StockMove[]
+  bills: Bill[]
+  expenses: Expense[]
+  accounts: Account[]
+  manualEntries: JournalEntry[]
 }
 
 const KEY = 'nova-erp-db-v1'
@@ -121,8 +178,19 @@ function seed(): DB {
     ],
   }
 
+  const bill: Bill = {
+    id: uid(), number: 'BILL-0001', partnerId: p3.id, date: today(),
+    dueDate: addDays(today(), 14), status: 'received', currency: 'BWP', note: '',
+    lines: [{ label: 'POS terminals (batch)', qty: 10, price: 4100, taxRate: 14, account: '1300' }],
+  }
+
+  const exp: Expense = {
+    id: uid(), date: today(), label: 'Office internet', amount: 1200,
+    taxRate: 14, account: '6300', paidBy: 'company', reimbursed: true, note: '',
+  }
+
   return {
-    version: 1,
+    version: 2,
     company: {
       name: 'My Company', email: 'billing@mycompany.com',
       address: 'Gaborone, Botswana', currency: 'BWP', taxRate: 14, vatId: '',
@@ -135,25 +203,113 @@ function seed(): DB {
       { id: uid(), productId: b.id, qty: 2, kind: 'out', ref: 'INV-0001', date: today() },
       { id: uid(), productId: c.id, qty: 3, kind: 'in', ref: 'Opening stock', date: today() },
     ],
+    bills: [bill],
+    expenses: [exp],
+    accounts: CHART,
+    manualEntries: [],
   }
 }
 
-function load(): DB {
-  try {
-    const raw = localStorage.getItem(KEY)
-    if (raw) return JSON.parse(raw) as DB
-  } catch { /* corrupted storage -> reseed */ }
-  const s = seed()
-  try { localStorage.setItem(KEY, JSON.stringify(s)) } catch { /* private mode */ }
-  return s
+/** Default chart of accounts — small but a genuine double-entry structure. */
+export const CHART: Account[] = [
+  { code: '1000', name: 'Bank', type: 'asset' },
+  { code: '1100', name: 'Accounts receivable', type: 'asset' },
+  { code: '1300', name: 'Inventory', type: 'asset' },
+  { code: '1400', name: 'VAT receivable (input)', type: 'asset' },
+  { code: '2000', name: 'Accounts payable', type: 'liability' },
+  { code: '2100', name: 'VAT payable (output)', type: 'liability' },
+  { code: '2200', name: 'Employee reimbursements', type: 'liability' },
+  { code: '3000', name: 'Owner equity', type: 'equity' },
+  { code: '4000', name: 'Sales revenue', type: 'income' },
+  { code: '5000', name: 'Cost of goods sold', type: 'expense' },
+  { code: '6100', name: 'Salaries & wages', type: 'expense' },
+  { code: '6200', name: 'Rent', type: 'expense' },
+  { code: '6300', name: 'Utilities & internet', type: 'expense' },
+  { code: '6400', name: 'Travel', type: 'expense' },
+  { code: '6500', name: 'Marketing', type: 'expense' },
+  { code: '6900', name: 'Other operating expenses', type: 'expense' },
+]
+
+/* ---------- persistence: IndexedDB with localStorage fallback ---------- */
+
+const IDB_NAME = 'nova-erp'
+const IDB_STORE = 'kv'
+
+function idb(): Promise<IDBDatabase | null> {
+  return new Promise(resolve => {
+    if (typeof indexedDB === 'undefined') return resolve(null)
+    const req = indexedDB.open(IDB_NAME, 1)
+    req.onupgradeneeded = () => {
+      const d = req.result
+      if (!d.objectStoreNames.contains(IDB_STORE)) d.createObjectStore(IDB_STORE)
+    }
+    req.onsuccess = () => resolve(req.result)
+    req.onerror = () => resolve(null)
+  })
 }
 
-let state: DB = load()
+async function idbGet(): Promise<DB | null> {
+  const d = await idb()
+  if (!d) return null
+  return new Promise(resolve => {
+    const r = d.transaction(IDB_STORE, 'readonly').objectStore(IDB_STORE).get(KEY)
+    r.onsuccess = () => resolve((r.result as DB) ?? null)
+    r.onerror = () => resolve(null)
+  })
+}
+
+async function idbPut(value: DB) {
+  const d = await idb()
+  if (!d) return
+  d.transaction(IDB_STORE, 'readwrite').objectStore(IDB_STORE).put(value, KEY)
+}
+
+/** Forward-compatible migration: fills in anything a older snapshot lacks. */
+export function migrate(raw: Partial<DB> | null): DB {
+  if (!raw || !Array.isArray(raw.partners)) return seed()
+  const base = seed()
+  return {
+    version: 2,
+    company: { ...base.company, ...(raw.company || {}) },
+    partners: raw.partners ?? [],
+    products: raw.products ?? [],
+    invoices: raw.invoices ?? [],
+    moves: raw.moves ?? [],
+    bills: raw.bills ?? [],
+    expenses: raw.expenses ?? [],
+    accounts: raw.accounts && raw.accounts.length ? raw.accounts : CHART,
+    manualEntries: raw.manualEntries ?? [],
+  }
+}
+
+function loadSync(): DB {
+  try {
+    const raw = localStorage.getItem(KEY)
+    if (raw) return migrate(JSON.parse(raw))
+  } catch { /* corrupted or unavailable */ }
+  return seed()
+}
+
+let state: DB = loadSync()
 const listeners = new Set<() => void>()
+
+/** Called once at boot: IndexedDB is the source of truth when present. */
+export async function initDB(): Promise<void> {
+  try {
+    const stored = await idbGet()
+    if (stored) {
+      state = migrate(stored)
+      listeners.forEach(l => l())
+    }
+    await idbPut(state)
+  } catch { /* stay on the localStorage snapshot */ }
+}
 
 function commit(next: DB) {
   state = next
+  // localStorage keeps a synchronous mirror so first paint never blocks.
   try { localStorage.setItem(KEY, JSON.stringify(next)) } catch { /* quota */ }
+  void idbPut(next)
   listeners.forEach(l => l())
 }
 
@@ -165,7 +321,7 @@ export function update(fn: (d: DB) => void) {
   commit(next)
 }
 
-export function replaceDB(next: DB) { commit(next) }
+export function replaceDB(next: DB) { commit(migrate(next)) }
 
 export function resetDB() { commit(seed()) }
 

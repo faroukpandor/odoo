@@ -5,7 +5,9 @@ const nav = [
   { to: '/', label: 'Dashboard', icon: '◎', end: true },
   { to: '/crm', label: 'CRM', icon: '◈' },
   { to: '/invoices', label: 'Invoicing', icon: '▤' },
+  { to: '/purchases', label: 'Purchasing', icon: '▣' },
   { to: '/inventory', label: 'Inventory', icon: '▦' },
+  { to: '/accounting', label: 'Accounting', icon: '∑' },
   { to: '/settings', label: 'Settings', icon: '⚙' },
 ]
 

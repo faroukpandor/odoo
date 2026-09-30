@@ -11,6 +11,8 @@ Modules in this MVP:
 | **CRM** | Contacts (customer/supplier/both), 5-stage pipeline with per-stage totals, search, full CRUD |
 | **Invoicing** | Multi-line invoices, per-line tax, product picker, auto-numbering, status tracking, overdue detection, printable/PDF document, auto-posts stock moves |
 | **Inventory** | Products with cost/price/margin, live on-hand computed from the move ledger, reorder points and alerts, manual in/out/adjust moves |
+| **Purchasing** | Vendor bills with per-line expense/inventory accounts, payment status, plus an expenses tab with company-paid vs reimbursable employee spend |
+| **Accounting** | True double-entry ledger auto-derived from documents: journal, trial balance, profit & loss and balance sheet, date cut-off, printable, plus manual adjusting entries that must balance before posting |
 | **Settings** | Company profile, currency, default tax, JSON export/import of the whole database, demo reset |
 
 ## Why this is different from Odoo / ERPNext / Dynamics / QuickBooks
@@ -19,6 +21,8 @@ Modules in this MVP:
 - **Works offline.** The app keeps functioning with no internet; competitors are SaaS-dependent.
 - **Zero lock-in.** The entire company database is one JSON file you own, export and re-import in a click.
 - **Instant.** No login, no onboarding wizard, no 20-minute install — open the URL and the demo company is already there.
+- **Books that cannot drift.** Journal entries are *derived* from invoices, bills and expenses instead of being posted separately, so operations and accounting are always reconciled by construction.
+- **Installable PWA.** IndexedDB storage plus a service worker: install it to your desktop or phone and keep working with no connection at all.
 
 ## Run locally
 
@@ -45,7 +49,8 @@ Routing uses `HashRouter`, so deep links work on any static host without rewrite
 
 ## Roadmap
 
-1. IndexedDB storage + service worker for full installable PWA
-2. Purchasing, expenses and simple double-entry ledger
-3. Multi-device sync via an optional free backend (Cloudflare D1 / Supabase free tier)
-4. Optional connector to the Odoo backend in this repository
+1. ~~IndexedDB storage + service worker for full installable PWA~~ ✅ done
+2. ~~Purchasing, expenses and double-entry ledger~~ ✅ done
+3. Bank reconciliation, recurring invoices and multi-currency
+4. Multi-device sync via an optional free backend (Cloudflare D1 / Supabase free tier)
+5. Optional connector to the Odoo backend in this repository

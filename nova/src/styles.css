@@ -120,3 +120,12 @@ textarea { min-height: 70px; resize: vertical; }
   .overlay { position: static; } .modal { border: 0; max-height: none; }
   .table { border-color: #ccc; } .table td, .table th { border-color: #ddd; color: #000; }
 }
+
+.tabs { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
+.tab { background: var(--panel); border: 1px solid var(--line); color: var(--muted);
+  padding: 7px 14px; border-radius: 99px; cursor: pointer; font-size: 13px; }
+.tab:hover { color: var(--txt); }
+.tab.on { background: rgba(91,140,255,.18); border-color: var(--brand); color: #fff; }
+.grand-row td { border-top: 2px solid var(--line); font-size: 15px; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.table th[colspan] { padding-top: 14px; }
