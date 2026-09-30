@@ -8,6 +8,7 @@ import Invoices from './pages/Invoices'
 import Inventory from './pages/Inventory'
 import Purchases from './pages/Purchases'
 import Accounting from './pages/Accounting'
+import Reports from './pages/Reports'
 import Settings from './pages/Settings'
 import { initDB } from './lib/db'
 import './styles.css'
@@ -25,6 +26,7 @@ function start() {
             <Route path="purchases" element={<Purchases />} />
             <Route path="inventory" element={<Inventory />} />
             <Route path="accounting" element={<Accounting />} />
+            <Route path="reports" element={<Reports />} />
             <Route path="settings" element={<Settings />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>

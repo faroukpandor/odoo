@@ -8,6 +8,7 @@ const nav = [
   { to: '/purchases', label: 'Purchasing', icon: '▣' },
   { to: '/inventory', label: 'Inventory', icon: '▦' },
   { to: '/accounting', label: 'Accounting', icon: '∑' },
+  { to: '/reports', label: 'Reports', icon: '◱' },
   { to: '/settings', label: 'Settings', icon: '⚙' },
 ]
 

@@ -129,3 +129,8 @@ textarea { min-height: 70px; resize: vertical; }
 .grand-row td { border-top: 2px solid var(--line); font-size: 15px; }
 .btn:disabled { opacity: .45; cursor: not-allowed; }
 .table th[colspan] { padding-top: 14px; }
+
+label.inline { flex-direction: row; align-items: center; gap: 6px; font-size: 12px; }
+label.inline input { width: auto; }
+.meter { background: #0e1729; border-radius: 99px; height: 8px; overflow: hidden; }
+.meter i { display: block; height: 100%; background: linear-gradient(90deg, var(--brand), #9b5bff); }
