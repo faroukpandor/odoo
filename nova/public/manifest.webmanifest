@@ -1,0 +1,22 @@
+{
+  "name": "Nova ERP",
+  "short_name": "Nova",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0b1220",
+  "theme_color": "#0b1220",
+  "description": "Offline-first ERP: CRM, invoicing, purchasing, inventory and double-entry accounting in your browser.",
+  "categories": ["business", "finance", "productivity"],
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "New invoice", "url": "./#/invoices" },
+    { "name": "Reports", "url": "./#/reports" },
+    { "name": "Accounting", "url": "./#/accounting" }
+  ]
+}
