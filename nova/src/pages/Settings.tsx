@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { useDB, update, exportJSON, importJSON, resetDB } from '../lib/db'
+import { useDB, update, exportJSON, importJSON, resetDB, getDB as getDBSafe } from '../lib/db'
 import { useToast } from '../lib/ui'
+import LogoPicker from '../components/LogoPicker'
+import { checkWorkspace, repairWorkspace } from '../lib/health'
 import { COUNTRIES } from '../lib/tender'
 import { applyCountry, progress } from '../lib/onboarding'
 import {
@@ -17,7 +19,6 @@ export default function Settings() {
   const db = useDB()
   const toast = useToast()
   const file = useRef<HTMLInputElement>(null)
-  const logo = useRef<HTMLInputElement>(null)
   const [snaps, setSnaps] = useState<Snapshot[]>([])
   const [storage, setStorage] = useState<{ usage: number; quota: number; pct: number } | null>(null)
   const [persisted, setPersisted] = useState<boolean | null>(null)
@@ -75,30 +76,11 @@ export default function Settings() {
           </label>
           <label className="wide">Address<input value={db.company.address} onChange={e => set({ address: e.target.value })} /></label>
         </div>
-        <div className="logo-row">
-          {db.company.logo
-            ? <img className="doc-logo big" src={db.company.logo} alt="Company logo" />
-            : <div className="logo-ph muted small">No logo</div>}
-          <div>
-            <p className="muted small">
-              Printed on quotes, invoices, delivery notes and statements. Stored on this device only;
-              keep it under 200 KB so backups stay small.
-            </p>
-            <div className="form-actions" style={{ justifyContent: 'flex-start' }}>
-              <button className="btn" onClick={() => logo.current?.click()}>Upload logo</button>
-              {db.company.logo && <button className="btn danger" onClick={() => set({ logo: '' })}>Remove</button>}
-            </div>
-            <input ref={logo} type="file" accept="image/*" hidden onChange={async e => {
-              const f = e.target.files?.[0]; if (!f) return
-              if (f.size > 400_000) { toast('That image is over 400 KB — please use a smaller one', 'bad'); return }
-              const reader = new FileReader()
-              reader.onload = () => { set({ logo: String(reader.result) }); toast('Logo saved') }
-              reader.readAsDataURL(f)
-              e.target.value = ''
-            }} />
-          </div>
-        </div>
+        <LogoPicker name={db.company.name} value={db.company.logo}
+          onChange={logo => set({ logo })} />
       </section>
+
+      <HealthCard />
 
       <Team />
 
@@ -318,6 +300,70 @@ function Team() {
       ) : (
         <button className="btn" onClick={() => setDraft(newUser())}>+ Add teammate</button>
       ))}
+    </section>
+  )
+}
+
+/**
+ * Integrity check. A server would enforce these as constraints; with no server
+ * they are run on demand and explained in plain language.
+ */
+function HealthCard() {
+  const db = useDB()
+  const toast = useToast()
+  const [report, setReport] = useState<ReturnType<typeof checkWorkspace> | null>(null)
+
+  const run = () => {
+    const r = checkWorkspace(db)
+    setReport(r)
+    toast(r.errors ? `${r.errors} problem${r.errors > 1 ? 's' : ''} found` : 'Books look healthy',
+      r.errors ? 'bad' : 'ok')
+  }
+
+  const repair = () => {
+    let done: string[] = []
+    update(d => { done = repairWorkspace(d) })
+    setReport(checkWorkspace(getDBSafe()))
+    toast(done.length ? done.join(' · ') : 'Nothing to repair')
+  }
+
+  return (
+    <section className="card">
+      <h2>Workspace health</h2>
+      <p className="muted">
+        Checks the things a database would normally enforce: references that point nowhere,
+        duplicate document numbers, over-allocated payments, postings to unknown accounts and
+        a journal that must always balance.
+      </p>
+      <div className="form-actions" style={{ justifyContent: 'flex-start' }}>
+        <button className="btn primary" onClick={run}>Run health check</button>
+        {report && report.findings.some(x => x.fixable) &&
+          <button className="btn" onClick={repair}>Repair what is safe</button>}
+      </div>
+
+      {report && (
+        <>
+          <div className="kpis" style={{ marginTop: 14 }}>
+            <div className={'kpi ' + (report.score > 90 ? 'ok' : report.errors ? 'bad' : 'warn')}>
+              <span>Health score</span><strong>{report.score}/100</strong>
+            </div>
+            <div className="kpi"><span>Errors</span><strong>{report.errors}</strong></div>
+            <div className="kpi"><span>Warnings</span><strong>{report.warnings}</strong></div>
+          </div>
+          {report.findings.length === 0
+            ? <p className="ok">No problems found — every reference, number and posting checks out.</p>
+            : (
+              <ul className="findings">
+                {report.findings.map(x => (
+                  <li key={x.id} className={x.severity}>
+                    <b>{x.title}{x.count > 1 ? ` (${x.count})` : ''}</b>
+                    <span className="muted small">{x.detail}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+        </>
+      )}
     </section>
   )
 }

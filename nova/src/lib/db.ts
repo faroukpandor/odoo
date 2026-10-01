@@ -568,11 +568,25 @@ try {
   }
 } catch { bus = null }
 
+let flushTimer: ReturnType<typeof setTimeout> | null = null
+
+/** Coalesces a burst of edits (typing in a form) into a single durable write. */
+function schedulePersist(next: DB) {
+  if (flushTimer) clearTimeout(flushTimer)
+  flushTimer = setTimeout(() => { flushTimer = null; void idbPut(next) }, 120)
+}
+
+/** Forces anything pending to disk — used before export, import or unload. */
+export function flushDB(): Promise<void> {
+  if (flushTimer) { clearTimeout(flushTimer); flushTimer = null }
+  return idbPut(state).catch(() => undefined)
+}
+
 function commit(next: DB, broadcast = true) {
   state = next
   // localStorage keeps a synchronous mirror so first paint never blocks.
   try { localStorage.setItem(KEY, JSON.stringify(next)) } catch { /* quota */ }
-  void idbPut(next)
+  schedulePersist(next)
   if (broadcast) { try { bus?.postMessage(next) } catch { /* structured-clone limits */ } }
   listeners.forEach(l => l())
 }
@@ -663,11 +677,39 @@ export function isOverdue(inv: Invoice) {
     && inv.dueDate < today()
 }
 
+/* ---------- derived-data indexes ---------- */
+
+/**
+ * Ageing, statements and the ledger each ask "what was paid against this
+ * document?" for every document, which is quadratic on a plain filter. The
+ * answer only changes when the workspace object changes, so index it once per
+ * version of the data and let the garbage collector drop old entries.
+ */
+const paymentIndexes = new WeakMap<DB, Map<string, Payment[]>>()
+const stockIndexes = new WeakMap<DB, Map<ID, number>>()
+
+function paymentIndex(d: DB): Map<string, Payment[]> {
+  const cached = paymentIndexes.get(d)
+  if (cached) return cached
+  const map = new Map<string, Payment[]>()
+  d.payments.forEach(p => {
+    if (!p.docType || !p.docId) return
+    const key = `${p.docType}:${p.docId}`
+    const list = map.get(key)
+    if (list) list.push(p)
+    else map.set(key, [p])
+  })
+  paymentIndexes.set(d, map)
+  return map
+}
+
 /* ---------- payments ---------- */
+
+const EMPTY: Payment[] = []
 
 /** Every payment allocated to a given document. */
 export function paymentsFor(d: DB, docType: 'invoice' | 'bill', docId: ID) {
-  return d.payments.filter(p => p.docType === docType && p.docId === docId)
+  return paymentIndex(d).get(`${docType}:${docId}`) ?? EMPTY
 }
 
 export function paidAmount(d: DB, docType: 'invoice' | 'bill', docId: ID) {
@@ -681,12 +723,18 @@ export function balanceDue(d: DB, docType: 'invoice' | 'bill', docId: ID, total:
 export const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
 
 export function stockOf(d: DB, productId: ID) {
-  return d.moves.reduce((s, m) => {
-    if (m.productId !== productId) return s
-    if (m.kind === 'in') return s + m.qty
-    if (m.kind === 'out') return s - m.qty
-    return m.qty
-  }, 0)
+  let map = stockIndexes.get(d)
+  if (!map) {
+    map = new Map<ID, number>()
+    // Order matters: 'adjust' sets the count outright, the others move it.
+    d.moves.forEach(mv => {
+      const prev = map!.get(mv.productId) ?? 0
+      map!.set(mv.productId,
+        mv.kind === 'in' ? prev + mv.qty : mv.kind === 'out' ? prev - mv.qty : mv.qty)
+    })
+    stockIndexes.set(d, map)
+  }
+  return round2(map.get(productId) ?? 0)
 }
 
 export function exportJSON() {

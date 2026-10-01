@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useDB, update, uid, resetDB, Company, Role, User } from '../lib/db'
 import { COUNTRIES, recommendedProviders, newChannel, providerOf, validateAccount } from '../lib/tender'
@@ -6,6 +6,7 @@ import { applyCountry, guessCountry, BUSINESS_KINDS } from '../lib/onboarding'
 import { TIERS, modulesForTier, CORE_IDS } from '../lib/modules'
 import { ROLES, newUser, initials, roleLabel } from '../lib/team'
 import { useToast } from '../lib/ui'
+import LogoPicker from './LogoPicker'
 
 /**
  * First-run wizard.
@@ -20,7 +21,6 @@ export default function Onboarding() {
   const db = useDB()
   const nav = useNavigate()
   const toast = useToast()
-  const logoInput = useRef<HTMLInputElement>(null)
 
   const [step, setStep] = useState(db.setup.step || 0)
   const [kind, setKind] = useState('services')
@@ -75,13 +75,6 @@ export default function Onboarding() {
   const skip = () => {
     update(d => { d.setup = { done: true, step: 0, dismissedChecklist: false } })
     toast('Setup skipped — you can run it again from Settings')
-  }
-
-  function readLogo(file: File) {
-    if (file.size > 400_000) { toast('That image is over 400 KB — please use a smaller one', 'bad'); return }
-    const reader = new FileReader()
-    reader.onload = () => setCompany(c => ({ ...c, logo: String(reader.result) }))
-    reader.readAsDataURL(file)
   }
 
   return (
@@ -174,25 +167,8 @@ export default function Onboarding() {
                 </label>
               </div>
 
-              <div className="logo-row">
-                {company.logo
-                  ? <img className="doc-logo big" src={company.logo} alt="Your logo" />
-                  : <div className="logo-ph muted small">No logo</div>}
-                <div>
-                  <b>Your logo</b>
-                  <p className="muted small">
-                    Printed on quotes, invoices, delivery notes and statements. Optional, and you can
-                    add it later in Settings.
-                  </p>
-                  <div className="form-actions" style={{ justifyContent: 'flex-start' }}>
-                    <button className="btn" onClick={() => logoInput.current?.click()}>Upload logo</button>
-                    {company.logo &&
-                      <button className="btn danger" onClick={() => setCompany({ ...company, logo: '' })}>Remove</button>}
-                  </div>
-                  <input ref={logoInput} type="file" accept="image/*" hidden
-                    onChange={e => { const f = e.target.files?.[0]; if (f) readLogo(f); e.target.value = '' }} />
-                </div>
-              </div>
+              <LogoPicker name={company.name} value={company.logo}
+                onChange={logo => setCompany(c => ({ ...c, logo }))} />
 
               {(isOrg || more) ? (
                 <div className="form">

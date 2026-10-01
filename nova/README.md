@@ -3,7 +3,7 @@
 An offline-first, zero-server ERP that runs entirely in the browser and deploys for free
 to GitHub Pages, Cloudflare Pages or Vercel.
 
-![tests](https://img.shields.io/badge/tests-160%20passing-35d39a) ![deps](https://img.shields.io/badge/runtime%20deps-4-5b8cff) ![cost](https://img.shields.io/badge/hosting%20cost-%240-9b5bff)
+![tests](https://img.shields.io/badge/tests-201%20passing-35d39a) ![deps](https://img.shields.io/badge/runtime%20deps-4-5b8cff) ![cost](https://img.shields.io/badge/hosting%20cost-%240-9b5bff)
 
 ## Modules
 
@@ -22,6 +22,8 @@ to GitHub Pages, Cloudflare Pages or Vercel.
 | **Accounting** | True double-entry ledger auto-derived from documents: journal, trial balance, profit & loss, balance sheet, date cut-off, printable, plus manual adjusting entries that must balance before posting |
 | **Recurring billing** | Retainers and subscriptions that issue their own invoices — weekly to yearly, end dates, pause/skip, MRR and annualised revenue. Missed runs are caught up the next time the app opens, so nothing depends on a server being awake |
 | **Reports** | AR/AP ageing by bucket, VAT return, revenue concentration with risk warning, cash summary, per-customer statement of account (opening balance → movement → closing, with ageing) that prints or shares, CSV export of ageing, VAT and the full journal |
+| **Logo studio** | No logo? Nova draws one: six deterministic SVG marks (monogram, badge, wordmark, shield, orbit, stack) built from your business name on the device, recolourable, yours to keep with no licence or watermark — or upload your own file, during onboarding or any time later in Settings |
+| **Workspace health** | On-demand integrity check doing the job a database's constraints would: dangling references, duplicate document numbers, over-allocated payments, negative invoices, postings to unknown accounts, a journal that must balance, and no-owner lockout — with a one-click repair for the findings that have an unambiguous fix |
 | **Settings** | Company profile, registration numbers and logo (printed on quotes, invoices, delivery notes and statements), JSON export/import, automatic restore points, storage quota meter, persistent-storage request, crash diagnostics |
 
 Plus a **Ctrl/Cmd+K command palette** that searches every contact, invoice, bill and product,
@@ -68,7 +70,7 @@ cd nova
 npm install
 npm run dev        # http://localhost:5173
 npm run typecheck  # strict TypeScript, no errors
-npm test           # 160 tests
+npm test           # 201 tests
 npm run build      # -> dist/
 ```
 
@@ -92,6 +94,19 @@ tests and build on every push.
 Routing uses `HashRouter`, so deep links work on any static host without rewrite rules.
 `NOVA_BASE` controls the asset base path (`/` for Vercel/Cloudflare, `/<repo>/` for Pages).
 
+## Performance and durability
+
+- Payment-by-document and stock-by-product lookups are **indexed per version of
+  the workspace** in a `WeakMap`, so ageing, statements and the ledger are linear
+  rather than quadratic; the index is rebuilt automatically on the next edit and
+  can never go stale.
+- Durable writes are **coalesced**: a burst of keystrokes becomes one IndexedDB
+  write 120 ms later, while `localStorage` keeps a synchronous mirror so a crash
+  or a reload never loses the last edit. `flushDB()` forces a write before export.
+- Dark, light and system appearance, stored outside the workspace so it never
+  travels inside an exported backup.
+- Phones get a bottom tab bar; printing hides all chrome.
+
 ## Architecture
 
 ```
@@ -104,6 +119,9 @@ src/
   lib/share.ts       Web Share API, WhatsApp/email/SMS deep links
   lib/onboarding.ts  checklist, country tax/currency defaults, business profiles
   lib/team.ts        users, roles, permissions, attribution
+  lib/logo.ts        generated SVG logo marks, palettes, data URLs
+  lib/health.ts      integrity checks and safe repairs
+  lib/theme.ts       dark/light/system appearance
   lib/recurring.ts   recurring schedules, catch-up billing run, MRR
   lib/statement.ts   customer statement of account with running balance
   lib/reports.ts     ageing, VAT return, analytics, CSV

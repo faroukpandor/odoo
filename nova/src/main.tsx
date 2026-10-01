@@ -16,6 +16,7 @@ import Reports from './pages/Reports'
 import Settings from './pages/Settings'
 import { initDB, update, getDB, uid, today } from './lib/db'
 import { runSchedules, dueSchedules } from './lib/recurring'
+import { initTheme } from './lib/theme'
 import { autoSnapshot } from './lib/backup'
 import { ErrorBoundary, ToastHost } from './lib/ui'
 import './styles.css'
@@ -52,6 +53,8 @@ function start() {
 }
 
 // Hydrate from IndexedDB first, then render; never block boot on storage errors.
+initTheme()
+
 initDB().finally(() => {
   // Catch up any recurring invoice that fell due while the app was closed.
   try {

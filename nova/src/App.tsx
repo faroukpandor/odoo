@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useDB, update } from './lib/db'
 import { navModules } from './lib/modules'
 import { currentUser, canSee, initials, roleLabel, switchUser, isReadOnly } from './lib/team'
+import { THEMES, Theme, getTheme, applyTheme } from './lib/theme'
 import CommandPalette from './components/CommandPalette'
 import Onboarding from './components/Onboarding'
 
@@ -11,6 +12,7 @@ export default function App() {
   const [open, setOpen] = useState(false)
   const loc = useLocation()
   const me = currentUser(db)
+  const [theme, setTheme] = useState<Theme>(getTheme)
   const nav = navModules(db.modules.enabled).filter(n => canSee(db, n.to!))
 
   return (
@@ -55,6 +57,13 @@ export default function App() {
         <button className="cmdk" onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }))}>
           Search <kbd>Ctrl</kbd><kbd>K</kbd>
         </button>
+        <div className="theme-switch" role="group" aria-label="Appearance">
+          {THEMES.map(t => (
+            <button key={t.id} className={'theme-btn' + (theme === t.id ? ' on' : '')}
+              title={t.label} aria-label={t.label} aria-pressed={theme === t.id}
+              onClick={() => { setTheme(t.id); applyTheme(t.id) }}>{t.icon}</button>
+          ))}
+        </div>
         <div className="side-foot">
           <span className="dot" /> Offline-first · no server
           {isReadOnly(db) && <div className="small warn">Read-only — you are signed in as a viewer</div>}
@@ -62,6 +71,16 @@ export default function App() {
       </aside>
 
       <main className="main" key={loc.pathname}><Outlet /></main>
+
+      <nav className="tabbar" aria-label="Main">
+        {nav.slice(0, 5).map(n => (
+          <NavLink key={n.to} to={n.to!} end={n.to === '/'}
+            className={({ isActive }) => 'tabbar-link' + (isActive ? ' active' : '')}>
+            <span className="ico">{n.icon}</span>
+            <span className="small">{n.name.split(' ')[0]}</span>
+          </NavLink>
+        ))}
+      </nav>
       {!db.setup.done && <Onboarding />}
       <CommandPalette />
     </div>

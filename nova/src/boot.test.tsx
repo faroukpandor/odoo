@@ -237,3 +237,71 @@ describe('several people sharing one workspace', () => {
     expect(host.innerHTML).toContain('Second Window Customer')
   })
 })
+
+describe('getting a logo without a designer', () => {
+  beforeEach(() => {
+    resetDB()
+    update(d => { d.setup = { done: false, step: 0, dismissedChecklist: false } })
+  })
+
+  it('offers generated designs during onboarding and applies the chosen one', () => {
+    const { host } = mount('#/')
+    clickText(host, 'Continue')
+    clickText(host, 'Hacker / solo')
+    clickText(host, 'Continue')
+
+    expect(host.innerHTML).toContain('Design one for me')
+    clickText(host, 'Design one for me')
+    const designs = host.querySelectorAll('.logo-option')
+    expect(designs.length).toBeGreaterThanOrEqual(6)
+
+    act(() => { (designs[0] as HTMLElement).click() })
+    const preview = host.querySelector('.doc-logo') as HTMLImageElement
+    expect(preview.src.startsWith('data:image/svg+xml')).toBe(true)
+
+    // and it survives into the saved company profile
+    clickText(host, 'Continue')
+    clickText(host, 'Continue')
+    clickText(host, 'Start with empty books')
+    expect((getDB().company.logo ?? '').startsWith('data:image/svg+xml')).toBe(true)
+  })
+
+  it('still lets a business upload its own file later from Settings', () => {
+    update(d => { d.setup = { done: true, step: 0, dismissedChecklist: false } })
+    const { host } = mount('#/settings')
+    expect(host.innerHTML).toContain('Upload my logo')
+    expect(host.innerHTML).toContain('Design one for me')
+  })
+
+  it('prints whatever logo is set on the documents it issues', () => {
+    update(d => {
+      d.setup = { done: true, step: 0, dismissedChecklist: false }
+      d.company.logo = 'data:image/svg+xml;charset=utf-8,%3Csvg%3E%3C/svg%3E'
+    })
+    const { host } = mount('#/reports')
+    clickText(host, 'Customer statement')
+    expect(host.querySelector('.doc-logo')).not.toBeNull()
+  })
+})
+
+describe('appearance and small screens', () => {
+  beforeEach(() => {
+    resetDB()
+    update(d => { d.setup = { done: true, step: 0, dismissedChecklist: false } })
+  })
+
+  it('switches the whole app to a light palette', () => {
+    const { host } = mount('#/')
+    clickText(host, '☀')
+    expect(document.documentElement.dataset.theme).toBe('light')
+    clickText(host, '☾')
+    expect(document.documentElement.dataset.theme).toBe('dark')
+  })
+
+  it('gives phones a bottom tab bar of the main destinations', () => {
+    const { host } = mount('#/')
+    const tabs = host.querySelectorAll('.tabbar-link')
+    expect(tabs.length).toBe(5)
+    expect(tabs[0].getAttribute('href')).toBe('#/')
+  })
+})
