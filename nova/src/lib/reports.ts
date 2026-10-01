@@ -5,7 +5,7 @@
  */
 import { DB, Invoice, Bill, invoiceTotals, billTotals, expenseTotals, balanceDue, money } from './db'
 import { trialBalance } from './accounting'
-import { openInvoices, openBills } from './payments'
+import { openInvoices, openBills, isPosted } from './payments'
 
 export const BUCKETS = ['current', '1-30', '31-60', '61-90', '90+'] as const
 export type Bucket = typeof BUCKETS[number]
@@ -73,10 +73,11 @@ export function payablesAgeing(d: DB, asAt: string) {
 export function vatReturn(d: DB, from: string, to: string) {
   const inRange = (date: string) => date >= from && date <= to
 
-  const salesNet = d.invoices.filter(i => i.status !== 'draft' && inRange(i.date))
-    .reduce((s, i) => s + invoiceTotals(i).net, 0)
-  const outputTax = d.invoices.filter(i => i.status !== 'draft' && inRange(i.date))
-    .reduce((s, i) => s + invoiceTotals(i).tax, 0)
+  // Quotes and pro-formas are not taxable supplies; credit notes reverse one.
+  const sales = d.invoices.filter(i => isPosted(i) && i.status !== 'draft' && inRange(i.date))
+  const sign = (i: Invoice) => (i.kind === 'credit' ? -1 : 1)
+  const salesNet = sales.reduce((s, i) => s + sign(i) * invoiceTotals(i).net, 0)
+  const outputTax = sales.reduce((s, i) => s + sign(i) * invoiceTotals(i).tax, 0)
 
   const purchaseNet = d.bills.filter(b => b.status !== 'draft' && inRange(b.date))
     .reduce((s, b) => s + billTotals(b).net, 0)
@@ -94,9 +95,10 @@ export function vatReturn(d: DB, from: string, to: string) {
 /** Revenue ranking with share of total, for the "who matters" question. */
 export function topCustomers(d: DB, limit = 10) {
   const map = new Map<string, number>()
-  d.invoices.filter(i => i.status !== 'draft').forEach(i => {
+  d.invoices.filter(i => isPosted(i) && i.status !== 'draft').forEach(i => {
     const name = d.partners.find(p => p.id === i.partnerId)?.name ?? 'Unknown'
-    map.set(name, (map.get(name) || 0) + invoiceTotals(i).net)
+    const sign = i.kind === 'credit' ? -1 : 1
+    map.set(name, (map.get(name) || 0) + sign * invoiceTotals(i).net)
   })
   const total = [...map.values()].reduce((s, v) => s + v, 0) || 1
   return [...map.entries()]

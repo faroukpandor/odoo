@@ -10,6 +10,7 @@ import Purchases from './Purchases'
 import Banking from './Banking'
 import Apps from './Apps'
 import Channels from './Channels'
+import Recurring from './Recurring'
 import Inventory from './Inventory'
 import Accounting from './Accounting'
 import Reports from './Reports'
@@ -31,6 +32,7 @@ const routes: [string, string, React.ReactNode][] = [
   ['/inventory', 'Inventory', <Inventory key="n" />],
   ['/apps', 'Activate only what you need', <Apps key="ap" />],
   ['/channels', 'Payment channels', <Channels key="ch" />],
+  ['/recurring', 'Recurring billing', <Recurring key="rc" />],
   ['/accounting', 'Accounting', <Accounting key="a" />],
   ['/reports', 'Reports', <Reports key="r" />],
   ['/settings', 'Settings', <Settings key="s" />],

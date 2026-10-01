@@ -10,6 +10,7 @@ import Purchases from './pages/Purchases'
 import Banking from './pages/Banking'
 import Inventory from './pages/Inventory'
 import Channels from './pages/Channels'
+import Recurring from './pages/Recurring'
 import Apps from './pages/Apps'
 import Accounting from './pages/Accounting'
 import Reports from './pages/Reports'
@@ -42,6 +43,7 @@ function mount(hash: string) {
                   <Route path="banking" element={<Banking />} />
                   <Route path="inventory" element={<Inventory />} />
                   <Route path="channels" element={<Channels />} />
+                  <Route path="recurring" element={<Recurring />} />
                   <Route path="apps" element={<Apps />} />
                   <Route path="accounting" element={<Accounting />} />
                   <Route path="reports" element={<Reports />} />
@@ -59,7 +61,7 @@ function mount(hash: string) {
 }
 
 const ROUTES = ['#/', '#/crm', '#/invoices', '#/purchases', '#/banking', '#/inventory',
-  '#/channels', '#/apps', '#/accounting', '#/reports', '#/settings']
+  '#/channels', '#/recurring', '#/apps', '#/accounting', '#/reports', '#/settings']
 
 // React needs this flag to run effects synchronously inside act().
 ;(globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true

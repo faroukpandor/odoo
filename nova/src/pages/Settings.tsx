@@ -12,6 +12,7 @@ export default function Settings() {
   const db = useDB()
   const toast = useToast()
   const file = useRef<HTMLInputElement>(null)
+  const logo = useRef<HTMLInputElement>(null)
   const [snaps, setSnaps] = useState<Snapshot[]>([])
   const [storage, setStorage] = useState<{ usage: number; quota: number; pct: number } | null>(null)
   const [persisted, setPersisted] = useState<boolean | null>(null)
@@ -64,6 +65,29 @@ export default function Settings() {
             <input value={db.company.fyStart} placeholder="01-01"
               onChange={e => set({ fyStart: e.target.value })} /></label>
           <label className="wide">Address<input value={db.company.address} onChange={e => set({ address: e.target.value })} /></label>
+        </div>
+        <div className="logo-row">
+          {db.company.logo
+            ? <img className="doc-logo big" src={db.company.logo} alt="Company logo" />
+            : <div className="logo-ph muted small">No logo</div>}
+          <div>
+            <p className="muted small">
+              Printed on quotes, invoices, delivery notes and statements. Stored on this device only;
+              keep it under 200 KB so backups stay small.
+            </p>
+            <div className="form-actions" style={{ justifyContent: 'flex-start' }}>
+              <button className="btn" onClick={() => logo.current?.click()}>Upload logo</button>
+              {db.company.logo && <button className="btn danger" onClick={() => set({ logo: '' })}>Remove</button>}
+            </div>
+            <input ref={logo} type="file" accept="image/*" hidden onChange={async e => {
+              const f = e.target.files?.[0]; if (!f) return
+              if (f.size > 400_000) { toast('That image is over 400 KB — please use a smaller one', 'bad'); return }
+              const reader = new FileReader()
+              reader.onload = () => { set({ logo: String(reader.result) }); toast('Logo saved') }
+              reader.readAsDataURL(f)
+              e.target.value = ''
+            }} />
+          </div>
         </div>
       </section>
 

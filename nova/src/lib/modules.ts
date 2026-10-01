@@ -52,7 +52,7 @@ export const MODULES: ModuleSpec[] = [
   { id: 'pos', name: 'Point of sale', icon: '⌗', group: 'Operations', tier: 'micro', status: 'planned', blurb: 'Offline touch till with cash-up and receipt printing.' },
   { id: 'projects', name: 'Projects & timesheets', icon: '◳', group: 'Operations', tier: 'small', status: 'planned', blurb: 'Tasks, time capture, billable recovery per project.' },
   { id: 'hr', name: 'HR & payroll', icon: '☗', group: 'People', tier: 'small', status: 'planned', blurb: 'Employees, leave, payslips, PAYE schedules.' },
-  { id: 'subscriptions', name: 'Subscriptions & recurring billing', icon: '↻', group: 'Growth', tier: 'small', status: 'planned', blurb: 'Retainers, auto-generated invoices, MRR and churn.' },
+  { id: 'subscriptions', name: 'Recurring billing', icon: '↻', to: '/recurring', group: 'Growth', tier: 'small', status: 'live', blurb: 'Retainers and subscriptions that invoice themselves, with MRR.' },
   { id: 'multicurrency', name: 'Multi-currency', icon: '§', group: 'Finance', tier: 'small', status: 'planned', blurb: 'Per-document FX, revaluation and realised gain/loss.' },
   { id: 'warehouse', name: 'Multi-warehouse & barcode', icon: '⊟', group: 'Operations', tier: 'medium', status: 'planned', blurb: 'Locations, transfers, pick/pack, camera barcode scanning.' },
   { id: 'manufacturing', name: 'Manufacturing (MRP)', icon: '⚒', group: 'Operations', tier: 'medium', status: 'planned', blurb: 'Bills of materials, work orders, WIP valuation.' },
@@ -72,7 +72,7 @@ export const byId = (id: string) => MODULES.find(m => m.id === id)
 export const CORE_IDS = MODULES.filter(m => m.core).map(m => m.id)
 
 /** What a fresh workspace switches on. */
-export const DEFAULT_MODULES = [...CORE_IDS, 'inventory', 'payments']
+export const DEFAULT_MODULES = [...CORE_IDS, 'inventory', 'payments', 'subscriptions']
 
 const TIER_ORDER: Tier[] = ['hacker', 'micro', 'small', 'medium', 'large', 'enterprise']
 

@@ -5,8 +5,10 @@ import {
   BUCKETS, ageingCSV, downloadCSV, toCSV, AgeRow,
 } from '../lib/reports'
 import { journal } from '../lib/accounting'
+import { statement, statementPartners, statementText } from '../lib/statement'
+import { shareText, whatsappLink, mailtoLink } from '../lib/share'
 
-type Tab = 'ar' | 'ap' | 'vat' | 'customers'
+type Tab = 'ar' | 'ap' | 'vat' | 'customers' | 'statement'
 
 const startOfYear = () => today().slice(0, 4) + '-01-01'
 
@@ -42,11 +44,11 @@ export default function Reports() {
         <Kpi label="Cash received" value={money(cash.received)} tone="ok" />
         <Kpi label="Cash spent" value={money(cash.spent)} />
         <Kpi label="Cash balance" value={money(cash.balance)} tone={cash.balance >= 0 ? 'brand' : 'bad'} />
-        <Kpi label="Net VAT due" value={money(vat.payable)} tone={vat.payable > 0 ? 'warn' : 'ok'} />
+        <Kpi label={`Net ${db.company.taxLabel || "tax"} due`} value={money(vat.payable)} tone={vat.payable > 0 ? 'warn' : 'ok'} />
       </div>
 
       <div className="tabs">
-        {([['ar', 'Receivables ageing'], ['ap', 'Payables ageing'], ['vat', 'VAT return'], ['customers', 'Top customers']] as [Tab, string][])
+        {([['ar', 'Receivables ageing'], ['ap', 'Payables ageing'], ['vat', 'VAT return'], ['customers', 'Top customers'], ['statement', 'Customer statement']] as [Tab, string][])
           .map(([k, l]) => <button key={k} className={'tab' + (tab === k ? ' on' : '')} onClick={() => setTab(k)}>{l}</button>)}
       </div>
 
@@ -84,6 +86,8 @@ export default function Reports() {
         </section>
       )}
 
+      {tab === 'statement' && <Statements from={from} to={asAt} />}
+
       {tab === 'customers' && (
         <section className="card">
           <h2>Revenue by customer</h2>
@@ -110,6 +114,77 @@ export default function Reports() {
         </section>
       )}
     </>
+  )
+}
+
+/** Customer statement of account — the document bookkeepers always ask for. */
+function Statements({ from, to }: { from: string; to: string }) {
+  const db = useDB()
+  const rows = statementPartners(db)
+  const [id, setId] = useState(rows[0]?.id ?? '')
+  const chosen = rows.find(r => r.id === id)
+  if (!chosen) return <section className="card"><p className="muted">Add a customer first.</p></section>
+
+  const st = statement(db, chosen.id, from, to)
+  const text = statementText(st, db.company.currency)
+
+  return (
+    <section className="card print-area">
+      <div className="filters">
+        <label className="inline">Customer
+          <select value={id} onChange={e => setId(e.target.value)}>
+            {rows.map(r => <option key={r.id} value={r.id}>{r.name} · {money(r.balance)}</option>)}
+          </select>
+        </label>
+        <span className="grow" />
+        <button className="btn tiny" onClick={() => void shareText({ title: `Statement · ${st.name}`, text })}>Share</button>
+        <a className="btn tiny" href={whatsappLink(text, chosen.phone)} target="_blank" rel="noreferrer">WhatsApp</a>
+        <a className="btn tiny" href={mailtoLink(chosen.email, `Statement of account — ${st.name}`, text)}>Email</a>
+        <button className="btn tiny" onClick={() => window.print()}>Print</button>
+      </div>
+
+      <div className="doc-head">
+        <div>
+          {db.company.logo && <img className="doc-logo" src={db.company.logo} alt="" />}
+          <h2>{db.company.name}</h2>
+          <div className="muted small">{db.company.address}<br />{db.company.email}</div>
+        </div>
+        <div className="r">
+          <h2>STATEMENT</h2>
+          <div className="muted small">{st.name}<br />{from} to {to}</div>
+        </div>
+      </div>
+
+      <div className="scroll-x">
+        <table className="table compact">
+          <thead><tr>
+            <th>Date</th><th>Reference</th><th>Description</th>
+            <th className="r">Charge</th><th className="r">Paid</th><th className="r">Balance</th>
+          </tr></thead>
+          <tbody>
+            <tr><td colSpan={5}><b>Opening balance</b></td><td className="r"><b>{money(st.opening)}</b></td></tr>
+            {st.rows.map((r, i) => (
+              <tr key={i}>
+                <td>{r.date}</td><td>{r.ref}</td><td>{r.description}</td>
+                <td className="r">{r.charge ? money(r.charge) : ''}</td>
+                <td className="r">{r.paid ? money(r.paid) : ''}</td>
+                <td className="r">{money(r.balance)}</td>
+              </tr>
+            ))}
+            {st.rows.length === 0 && <tr><td colSpan={6} className="muted">No movement in this period.</td></tr>}
+            <tr><td colSpan={5}><b>Closing balance</b></td><td className="r"><b>{money(st.closing)}</b></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div className="totals">
+        {BUCKETS.map(b => (
+          <div key={b}><span>{b === 'current' ? 'Not yet due' : b + ' days'}</span><b>{money(st.ageing[b])}</b></div>
+        ))}
+        <div className="grand"><span>Overdue</span>
+          <b className={st.overdue > 0 ? 'bad' : 'ok'}>{money(st.overdue)}</b></div>
+      </div>
+    </section>
   )
 }
 

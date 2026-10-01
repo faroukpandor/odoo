@@ -3,7 +3,7 @@ import {
   useDB, update, uid, today, money, invoiceTotals, nextInvoiceNumber, docTitle,
   balanceDue, paidAmount, Invoice, InvoiceLine, Payment, getDB,
 } from '../lib/db'
-import { invoiceStatus } from '../lib/payments'
+import { invoiceStatus, openInvoices, openCredits, applyCreditAllocations } from '../lib/payments'
 import { tendersFor, paymentInstructions, applyCoupon } from '../lib/tender'
 import { shareText, whatsappLink, mailtoLink } from '../lib/share'
 import QR from '../components/QR'
@@ -19,7 +19,7 @@ type View = { inv: Invoice; as: 'document' | 'delivery' }
 export default function Invoices() {
   const db = useDB()
   const toast = useToast()
-  const [tab, setTab] = useState<'invoice' | 'quote'>('invoice')
+  const [tab, setTab] = useState<'invoice' | 'quote' | 'credit'>('invoice')
   const [edit, setEdit] = useState<Invoice | null>(null)
   const [view, setView] = useState<View | null>(null)
 
@@ -36,6 +36,11 @@ export default function Invoices() {
         const i = d.invoices.findIndex(x => x.id === inv.id)
         if (i >= 0) d.invoices[i] = inv
       } else {
+        // A coupon only counts once the document it discounts actually exists.
+        if (inv.coupon) {
+          const c = d.coupons.find(x => x.code.toLowerCase() === inv.coupon!.toLowerCase())
+          if (c) c.used += 1
+        }
         const created = { ...inv, id: uid() }
         d.invoices.unshift(created)
         // Quotes reserve nothing: only real sales documents move stock.
@@ -74,7 +79,7 @@ export default function Invoices() {
         })
       })
       const src = d.invoices.find(x => x.id === q.id)
-      if (src) src.status = 'paid' // quote closed as won
+      if (src) src.convertedTo = inv.id
     })
     toast(`${q.number} converted to an invoice`)
     setTab('invoice')
@@ -85,11 +90,45 @@ export default function Invoices() {
     toast('Delivery recorded')
   }
 
+  /** Credit note for the full value of an invoice, reversing it in the ledger. */
+  function credit(inv: Invoice) {
+    update(d => {
+      const number = nextInvoiceNumber(d, 'credit')
+      d.invoices.unshift({
+        ...inv, id: uid(), kind: 'credit', number, status: 'sent', date: today(),
+        dueDate: today(), creditOf: inv.id, deliveredAt: undefined,
+        note: `Credit note for ${inv.number}`,
+      })
+      // Credited goods come back into stock.
+      inv.lines.forEach(l => {
+        if (l.productId) d.moves.push({
+          id: uid(), productId: l.productId, qty: l.qty, kind: 'in',
+          ref: number, date: today(),
+        })
+      })
+    })
+    toast(`Credit note raised against ${inv.number}`)
+    setTab('credit')
+  }
+
+  /** Settles an open invoice from an unused credit note — no cash moves. */
+  function applyCredit(cn: Invoice) {
+    const target = openInvoices(db).find(r => r.doc.partnerId === cn.partnerId)
+    if (!target) { toast('No open invoice for this customer to apply it to'); return }
+    const open = openCredits(db).find(r => r.doc.id === cn.id)
+    if (!open) { toast('This credit note is already used up'); return }
+    const amount = Math.min(open.due, target.due)
+    update(d => {
+      d.payments.unshift(...applyCreditAllocations(cn, target.doc, amount, today(), uid))
+    })
+    toast(`${money(amount)} of ${cn.number} applied to ${target.doc.number}`)
+  }
+
   /** One-click settlement: records a real payment for the outstanding balance. */
-  function settle(inv: Invoice) {
+  function settle(inv: Invoice, direction: 'in' | 'out' = 'in') {
     const due = balanceDue(db, 'invoice', inv.id, invoiceTotals(inv).total)
     const p: Payment = {
-      id: uid(), date: today(), kind: 'in', partnerId: inv.partnerId,
+      id: uid(), date: today(), kind: direction, partnerId: inv.partnerId,
       docType: 'invoice', docId: inv.id, amount: due, method: 'bank',
       ref: inv.number, reconciled: false, statementLineId: null,
     }
@@ -98,10 +137,15 @@ export default function Invoices() {
       const i = d.invoices.find(x => x.id === inv.id)
       if (i && i.status === 'draft') i.status = 'sent'
     })
-    toast(`${money(due)} received against ${inv.number}`)
+    toast(direction === 'in'
+      ? `${money(due)} received against ${inv.number}`
+      : `${money(due)} refunded on ${inv.number}`)
   }
 
-  const rows = db.invoices.filter(i => (tab === 'quote' ? i.kind === 'quote' : i.kind !== 'quote'))
+  const rows = db.invoices.filter(i =>
+    tab === 'quote' ? i.kind === 'quote'
+      : tab === 'credit' ? i.kind === 'credit'
+        : i.kind === 'invoice' || i.kind === 'proforma')
 
   return (
     <>
@@ -115,6 +159,7 @@ export default function Invoices() {
         </div>
         <div className="nowrap">
           <button className="btn" onClick={() => setEdit(blank('quote'))}>+ Quotation</button>
+          <button className="btn" onClick={() => setEdit(blank('credit'))}>+ Credit note</button>
           <button className="btn primary" onClick={() => setEdit(blank('invoice'))}>+ Invoice</button>
         </div>
       </header>
@@ -125,6 +170,9 @@ export default function Invoices() {
         </button>
         <button className={'tab' + (tab === 'quote' ? ' on' : '')} onClick={() => setTab('quote')}>
           Quotations
+        </button>
+        <button className={'tab' + (tab === 'credit' ? ' on' : '')} onClick={() => setTab('credit')}>
+          Credit notes{openCredits(db).length ? ` · ${openCredits(db).length} open` : ''}
         </button>
       </div>
 
@@ -153,18 +201,27 @@ export default function Invoices() {
                     <td className="r muted">{money(paidAmount(db, 'invoice', i.id), i.currency)}</td>
                     <td className={'r ' + (due > 0.005 ? 'warn' : 'ok')}>{money(due, i.currency)}</td>
                   </>}
-                  <td><span className={'badge ' + st}>{tab === 'quote' && st === 'paid' ? 'accepted' : st}</span></td>
+                  <td><span className={'badge ' + st}>
+                    {tab === 'quote' && i.convertedTo ? 'accepted' : tab === 'credit' && st === 'paid' ? 'used' : st}
+                  </span></td>
                   <td className="r nowrap">
                     <button className="btn tiny" onClick={() => setView({ inv: i, as: 'document' })}>View</button>
                     <button className="btn tiny" onClick={() => setEdit(i)}>Edit</button>
                     {i.kind === 'quote' ? (
-                      <button className="btn tiny ok" onClick={() => convert(i)}>Convert</button>
+                      <button className="btn tiny ok" disabled={!!i.convertedTo}
+                        onClick={() => convert(i)}>{i.convertedTo ? 'Converted' : 'Convert'}</button>
+                    ) : i.kind === 'credit' ? (
+                      <>
+                        {st !== 'paid' && <button className="btn tiny ok" onClick={() => applyCredit(i)}>Apply</button>}
+                        {st !== 'paid' && <button className="btn tiny" onClick={() => settle(i, 'out')}>Refund</button>}
+                      </>
                     ) : (
                       <>
                         {i.status === 'draft' && <button className="btn tiny" onClick={() => send(i.id)}>Send</button>}
                         {!i.deliveredAt && <button className="btn tiny" onClick={() => deliver(i)}>Deliver</button>}
                         <button className="btn tiny" onClick={() => setView({ inv: i, as: 'delivery' })}>Note</button>
                         {st !== 'paid' && <button className="btn tiny ok" onClick={() => settle(i)}>Payment</button>}
+                        <button className="btn tiny" onClick={() => credit(i)}>Credit</button>
                       </>
                     )}
                   </td>
@@ -225,6 +282,7 @@ function Editor({ inv, setInv, onSave }: {
             <option value="quote">Quotation</option>
             <option value="proforma">Pro-forma invoice</option>
             <option value="invoice">Tax invoice</option>
+            <option value="credit">Credit note</option>
           </select>
         </label>
         <label>Number<input value={inv.number} onChange={e => setInv({ ...inv, number: e.target.value })} /></label>
@@ -315,6 +373,7 @@ function Preview({ view, onClose }: { view: View; onClose: () => void }) {
       <div className="print-area">
         <div className="doc-head">
           <div>
+            {db.company.logo && <img className="doc-logo" src={db.company.logo} alt="" />}
             <h2>{db.company.name}</h2>
             <div className="muted small">{db.company.address}<br />{db.company.email}
               {db.company.vatId && <><br />VAT {db.company.vatId}</>}</div>

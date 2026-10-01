@@ -14,13 +14,13 @@ export const cashAccount = (p: Pick<Payment, 'method'>) => (p.method === 'cash' 
 
 export type DocStatus = 'draft' | 'open' | 'partial' | 'paid' | 'overdue'
 
-export const docTotal = (doc: Invoice | Bill) =>
-  'lines' in doc && (doc as Invoice).lines.some(l => 'productId' in l)
-    ? invoiceTotals(doc as Invoice).total
-    : billTotals(doc as Bill).total
-
 /** Settlement state of an invoice, derived from its payments (never stored). */
 export function invoiceStatus(d: DB, inv: Invoice): DocStatus {
+  if (inv.kind === 'quote') {
+    // v5 and earlier closed a won quote by setting status = 'paid'.
+    if (inv.convertedTo || inv.status === 'paid') return 'paid'   // shown as "accepted"
+    return inv.status === 'draft' ? 'draft' : inv.dueDate < today() ? 'overdue' : 'open'
+  }
   return settle(d, 'invoice', inv.id, invoiceTotals(inv).total, inv.status, inv.dueDate)
 }
 
@@ -49,9 +49,13 @@ export function isLegacyPaid(d: DB, type: 'invoice' | 'bill', id: ID, status: st
   return status === 'paid' && paymentsFor(d, type, id).length === 0
 }
 
+/** Sales documents that actually hit the ledger (quotes and pro-formas do not). */
+export const isPosted = (i: Invoice) => i.kind === 'invoice' || i.kind === 'credit'
+
+/** Open customer invoices with what is still owed on each. */
 export function openInvoices(d: DB) {
   return d.invoices
-    .filter(i => i.status !== 'draft' && !isLegacyPaid(d, 'invoice', i.id, i.status))
+    .filter(i => i.kind === 'invoice' && i.status !== 'draft' && !isLegacyPaid(d, 'invoice', i.id, i.status))
     .map(i => ({ doc: i, due: balanceDue(d, 'invoice', i.id, invoiceTotals(i).total) }))
     .filter(r => r.due > 0.005)
 }
@@ -64,16 +68,53 @@ export function openBills(d: DB) {
     .filter(r => r.due > 0.005)
 }
 
-export const totalReceivable = (d: DB) => round2(openInvoices(d).reduce((s, r) => s + r.due, 0))
+/** Credit notes with value left to refund or apply to another invoice. */
+export function openCredits(d: DB) {
+  return d.invoices
+    .filter(i => i.kind === 'credit' && i.status !== 'draft')
+    .map(i => ({ doc: i, due: balanceDue(d, 'invoice', i.id, invoiceTotals(i).total) }))
+    .filter(r => r.due > 0.005)
+}
+
+export const totalCredits = (d: DB) => round2(openCredits(d).reduce((s, r) => s + r.due, 0))
+
+/** What customers owe, net of credit notes you have not yet settled. */
+export const totalReceivable = (d: DB) =>
+  round2(openInvoices(d).reduce((s, r) => s + r.due, 0) - totalCredits(d))
 export const totalPayable = (d: DB) => round2(openBills(d).reduce((s, r) => s + r.due, 0))
 
 /** Signed cash effect of a payment: receipts add, disbursements subtract. */
 export const signedAmount = (p: Payment) => (p.kind === 'in' ? p.amount : -p.amount)
 
+/** Credit-note allocations never touch the bank, so exclude them from cash. */
+export const movesCash = (p: Payment) => p.method !== 'credit'
+
+/**
+ * Applies a credit note to an open invoice: two offsetting allocations, no
+ * cash, so both documents end up correctly settled and the books do not move.
+ */
+export function applyCreditAllocations(
+  credit: Invoice, invoice: Invoice, amount: number, date: string, mk: () => ID,
+): Payment[] {
+  const ref = `${credit.number} → ${invoice.number}`
+  return [
+    {
+      id: mk(), date, kind: 'in', partnerId: invoice.partnerId, docType: 'invoice',
+      docId: invoice.id, amount: round2(amount), method: 'credit', ref,
+      reconciled: true, statementLineId: null,
+    },
+    {
+      id: mk(), date, kind: 'out', partnerId: credit.partnerId, docType: 'invoice',
+      docId: credit.id, amount: round2(amount), method: 'credit', ref,
+      reconciled: true, statementLineId: null,
+    },
+  ]
+}
+
 /** Cash actually moved through the accounts over a period. */
 export function cashFlow(d: DB, from?: string, to?: string) {
   const inRange = (date: string) => (!from || date >= from) && (!to || date <= to)
-  const rows = d.payments.filter(p => inRange(p.date))
+  const rows = d.payments.filter(p => inRange(p.date) && movesCash(p))
   const received = round2(rows.filter(p => p.kind === 'in').reduce((s, p) => s + p.amount, 0))
   const spent = round2(rows.filter(p => p.kind === 'out').reduce((s, p) => s + p.amount, 0))
   return { received, spent, net: round2(received - spent) }
@@ -91,9 +132,9 @@ export function cashFlow(d: DB, from?: string, to?: string) {
 export function reconciliation(d: DB) {
   const statementBalance = round2(d.statementLines.reduce((s, l) => s + l.amount, 0))
   const unmatchedLines = d.statementLines.filter(l => !l.matchedPaymentId)
-  const unreconciled = d.payments.filter(p => !p.reconciled)
+  const unreconciled = d.payments.filter(p => !p.reconciled && movesCash(p))
   const matchedBalance = round2(
-    d.payments.filter(p => p.reconciled).reduce((s, p) => s + signedAmount(p), 0),
+    d.payments.filter(p => p.reconciled && movesCash(p)).reduce((s, p) => s + signedAmount(p), 0),
   )
   return {
     statementBalance,
@@ -113,7 +154,7 @@ export function suggestPayments(d: DB, line: StatementLine): Payment[] {
   const wantKind = line.amount >= 0 ? 'in' : 'out'
   const target = Math.abs(line.amount)
   return d.payments
-    .filter(p => p.kind === wantKind && !p.reconciled)
+    .filter(p => p.kind === wantKind && !p.reconciled && movesCash(p))
     .map(p => ({
       p,
       score: Math.abs(p.amount - target) * 100

@@ -2,13 +2,14 @@ import { Link } from 'react-router-dom'
 import Checklist from '../components/Checklist'
 import { useDB, invoiceTotals, billTotals, expenseTotals, money, isOverdue, stockOf, balanceDue } from '../lib/db'
 import { profitAndLoss, trialBalance } from '../lib/accounting'
-import { totalReceivable, totalPayable, cashFlow, reconciliation } from '../lib/payments'
+import { totalReceivable, totalPayable, cashFlow, reconciliation, isPosted } from '../lib/payments'
 
 export default function Dashboard() {
   const db = useDB()
   const today = new Date().toISOString().slice(0, 10)
 
-  const invoiced = db.invoices.reduce((s, i) => s + invoiceTotals(i).total, 0)
+  const posted = db.invoices.filter(isPosted)
+  const invoiced = posted.reduce((s, i) => s + (i.kind === 'credit' ? -1 : 1) * invoiceTotals(i).total, 0)
   const outstanding = totalReceivable(db)
   const overdue = db.invoices.filter(isOverdue)
     .reduce((s, i) => s + balanceDue(db, 'invoice', i.id, invoiceTotals(i).total), 0)
@@ -31,9 +32,9 @@ export default function Dashboard() {
   const pl = profitAndLoss(db)
 
   const byMonth: Record<string, number> = {}
-  db.invoices.forEach(i => {
+  posted.forEach(i => {
     const k = i.date.slice(0, 7)
-    byMonth[k] = (byMonth[k] || 0) + invoiceTotals(i).total
+    byMonth[k] = (byMonth[k] || 0) + (i.kind === 'credit' ? -1 : 1) * invoiceTotals(i).total
   })
   const months = Object.entries(byMonth).sort().slice(-6)
   const peak = Math.max(1, ...months.map(m => m[1]))

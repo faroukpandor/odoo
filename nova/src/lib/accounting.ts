@@ -19,16 +19,25 @@ const line = (account: string, debit: number, credit: number): JournalLine =>
 const round = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
 
 function invoiceEntries(inv: Invoice): JournalEntry[] {
-  if (inv.status === 'draft') return []
+  // Quotes and pro-formas are offers, not obligations: they never post.
+  if (inv.status === 'draft' || inv.kind === 'quote' || inv.kind === 'proforma') return []
   const t = invoiceTotals(inv)
+  // A credit note is the exact mirror of an invoice.
+  const sign = inv.kind === 'credit' ? -1 : 1
   const out: JournalEntry[] = [{
     id: 'je-inv-' + inv.id, date: inv.date, ref: inv.number,
-    memo: 'Customer invoice', source: 'invoice',
-    lines: [
-      line('1100', t.total, 0),  // AR
-      line('4000', 0, t.net),    // Revenue
-      ...(t.tax ? [line('2100', 0, t.tax)] : []), // VAT payable
-    ],
+    memo: inv.kind === 'credit' ? 'Credit note' : 'Customer invoice', source: 'invoice',
+    lines: sign > 0
+      ? [
+        line('1100', t.total, 0),                   // AR
+        line('4000', 0, t.net),                     // Revenue
+        ...(t.tax ? [line('2100', 0, t.tax)] : []), // VAT payable
+      ]
+      : [
+        line('4000', t.net, 0),                     // Revenue reversed
+        ...(t.tax ? [line('2100', t.tax, 0)] : []), // Output VAT reversed
+        line('1100', 0, t.total),                   // AR reduced
+      ],
   }]
   return out
 }
@@ -62,15 +71,21 @@ function paymentEntries(d: DB): JournalEntry[] {
   return d.payments.flatMap((p): JournalEntry[] => {
     if (p.docType === 'invoice' && !d.invoices.some(i => i.id === p.docId)) return []
     if (p.docType === 'bill' && !d.bills.some(b => b.id === p.docId)) return []
+    // Applying a credit note moves no money: receivables already net out, so
+    // the allocation is a settlement fact, not a journal entry.
+    if (p.method === 'credit') return []
     const cash = cashAccount(p)
+    // Customer money sits in receivables, supplier money in payables — so a
+    // refund to a customer correctly debits AR rather than AP.
+    const counter = p.docType === 'bill' ? '2000' : '1100'
     const label = docLabelFor(d, p)
     return [{
       id: 'je-pay-' + p.id, date: p.date, ref: p.ref || label,
       memo: p.kind === 'in' ? `Payment received · ${label}` : `Payment made · ${label}`,
       source: 'payment',
       lines: p.kind === 'in'
-        ? [line(cash, p.amount, 0), line('1100', 0, p.amount)]
-        : [line('2000', p.amount, 0), line(cash, 0, p.amount)],
+        ? [line(cash, p.amount, 0), line(counter, 0, p.amount)]
+        : [line(counter, p.amount, 0), line(cash, 0, p.amount)],
     }]
   })
 }

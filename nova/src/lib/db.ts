@@ -44,7 +44,7 @@ export interface InvoiceLine {
 export interface Invoice {
   id: ID
   /** Sales documents share one shape: a quote becomes an invoice in one click. */
-  kind: 'quote' | 'proforma' | 'invoice'
+  kind: 'quote' | 'proforma' | 'invoice' | 'credit'
   number: string
   partnerId: ID | null
   date: string
@@ -57,6 +57,10 @@ export interface Invoice {
   deliveredAt?: string
   /** Coupon code applied to this document, if any. */
   coupon?: string
+  /** Quote only: the invoice it turned into. */
+  convertedTo?: ID
+  /** Credit note only: the invoice it credits. */
+  creditOf?: ID
 }
 
 export interface StockMove {
@@ -110,7 +114,8 @@ export interface Payment {
   docType: 'invoice' | 'bill' | null
   docId: ID | null
   amount: number
-  method: 'bank' | 'cash'
+  /** `credit` settles a document against a credit note — no cash moves. */
+  method: 'bank' | 'cash' | 'credit'
   ref: string
   /** True once the payment has been ticked off against a bank statement. */
   reconciled: boolean
@@ -155,6 +160,24 @@ export interface Coupon {
   used: number
 }
 
+/** A sales document that re-issues itself on a schedule. */
+export interface Recurring {
+  id: ID
+  name: string
+  partnerId: ID | null
+  lines: InvoiceLine[]
+  every: 'week' | 'month' | 'quarter' | 'year'
+  /** Next issue date (ISO). */
+  nextRun: string
+  /** Stop after this date, or '' for open-ended. */
+  until: string
+  dueDays: number
+  active: boolean
+  note: string
+  /** Invoices already generated, newest first. */
+  generated: ID[]
+}
+
 /** Which optional modules this workspace has switched on. */
 export interface ModuleState {
   enabled: string[]
@@ -196,6 +219,8 @@ export interface Company {
   vatId: string
   /** Financial year start, e.g. '04-01' for 1 April. */
   fyStart: string
+  /** Data-URL logo printed on documents. Kept small on purpose. */
+  logo?: string
 }
 
 /** First-run wizard state and the getting-started checklist. */
@@ -219,6 +244,7 @@ export interface DB {
   statementLines: StatementLine[]
   channels: Channel[]
   coupons: Coupon[]
+  recurring: Recurring[]
   modules: ModuleState
   setup: Setup
   accounts: Account[]
@@ -295,11 +321,11 @@ function seed(): DB {
   pay.statementLineId = stmt[0].id
 
   return {
-    version: 5,
+    version: 6,
     company: {
       name: 'My Company', email: 'billing@mycompany.com', phone: '',
       address: 'Gaborone, Botswana', country: 'BW', currency: 'BWP',
-      taxRate: 14, taxLabel: 'VAT', vatId: '', fyStart: '01-01',
+      taxRate: 14, taxLabel: 'VAT', vatId: '', fyStart: '01-01', logo: '',
     },
     partners: [p1, p2, p3],
     products: [a, b, c],
@@ -317,6 +343,7 @@ function seed(): DB {
     coupons: [
       { code: 'WELCOME10', kind: 'percent', value: 10, expires: '', limit: 0, used: 0 },
     ],
+    recurring: [],
     modules: { enabled: [...DEFAULT_MODULES], requested: [] },
     setup: { done: false, step: 0, dismissedChecklist: false },
     accounts: CHART,
@@ -440,7 +467,7 @@ export function migrate(raw: Partial<DB> | null): DB {
   const accounts = [...stored, ...CHART.filter(c => !stored.some(a => a.code === c.code))]
 
   return {
-    version: 5,
+    version: 6,
     company: { ...base.company, ...(raw.company || {}) },
     partners: raw.partners ?? [],
     products: raw.products ?? [],
@@ -453,6 +480,7 @@ export function migrate(raw: Partial<DB> | null): DB {
     statementLines: raw.statementLines ?? [],
     channels: raw.channels ?? DEFAULT_CHANNELS(),
     coupons: raw.coupons ?? [],
+    recurring: raw.recurring ?? [],
     modules: {
       enabled: raw.modules?.enabled ?? [...DEFAULT_MODULES],
       requested: raw.modules?.requested ?? [],
@@ -538,14 +566,24 @@ export function invoiceTotals(inv: Invoice) {
   return { net, tax, total: net + tax }
 }
 
+/**
+ * Currency formatting follows the company's country, falling back gracefully:
+ * an unknown currency code must never blow up a render.
+ */
 export function money(v: number, currency = getDB().company.currency) {
-  return new Intl.NumberFormat('en-BW', {
-    style: 'currency', currency, maximumFractionDigits: 2,
-  }).format(isFinite(v) ? v : 0)
+  const n = isFinite(v) ? v : 0
+  const locale = `en-${getDB().company.country || 'BW'}`
+  try {
+    return new Intl.NumberFormat(locale, {
+      style: 'currency', currency, maximumFractionDigits: 2,
+    }).format(n)
+  } catch {
+    return `${currency} ${n.toFixed(2)}`
+  }
 }
 
 const DOC_PREFIX: Record<Invoice['kind'], string> = {
-  quote: 'QUO-', proforma: 'PRO-', invoice: 'INV-',
+  quote: 'QUO-', proforma: 'PRO-', invoice: 'INV-', credit: 'CN-',
 }
 
 /** Next number in the sequence for a given document kind. */
@@ -560,6 +598,7 @@ export function nextInvoiceNumber(d: DB, kind: Invoice['kind'] = 'invoice') {
 
 export const docTitle: Record<Invoice['kind'], string> = {
   quote: 'QUOTATION', proforma: 'PRO-FORMA INVOICE', invoice: 'TAX INVOICE',
+  credit: 'CREDIT NOTE',
 }
 
 export function isOverdue(inv: Invoice) {
