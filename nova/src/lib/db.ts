@@ -6,6 +6,7 @@
  * you can export, email, version-control or re-import at any time.
  */
 import { useSyncExternalStore } from 'react'
+import { DEFAULT_MODULES } from './modules'
 
 export type ID = string
 
@@ -42,6 +43,8 @@ export interface InvoiceLine {
 
 export interface Invoice {
   id: ID
+  /** Sales documents share one shape: a quote becomes an invoice in one click. */
+  kind: 'quote' | 'proforma' | 'invoice'
   number: string
   partnerId: ID | null
   date: string
@@ -50,6 +53,10 @@ export interface Invoice {
   lines: InvoiceLine[]
   currency: string
   note: string
+  /** Set when goods left the warehouse — drives the delivery note. */
+  deliveredAt?: string
+  /** Coupon code applied to this document, if any. */
+  coupon?: string
 }
 
 export interface StockMove {
@@ -120,6 +127,40 @@ export interface StatementLine {
   matchedPaymentId: ID | null
 }
 
+/** How a customer can actually pay: card link, mobile money, crypto, EFT, cash. */
+export type ChannelKind = 'card' | 'mobile' | 'crypto' | 'bank' | 'cash' | 'voucher'
+
+export interface Channel {
+  id: ID
+  kind: ChannelKind
+  /** Catalogue key, e.g. 'paypal', 'mpesa', 'btc'. */
+  provider: string
+  label: string
+  enabled: boolean
+  /** Link slug, till/paybill number, wallet address or account number. */
+  account: string
+  /** Extra instruction shown to the payer (branch code, memo, reference). */
+  detail: string
+  /** For crypto: value of ONE coin in company currency, used to quote amounts. */
+  rate: number
+}
+
+export interface Coupon {
+  code: string
+  kind: 'percent' | 'fixed'
+  value: number
+  expires: string
+  /** Times it may be used in total. 0 = unlimited. */
+  limit: number
+  used: number
+}
+
+/** Which optional modules this workspace has switched on. */
+export interface ModuleState {
+  enabled: string[]
+  requested: string[]
+}
+
 export interface Account {
   code: string
   name: string
@@ -161,6 +202,9 @@ export interface DB {
   expenses: Expense[]
   payments: Payment[]
   statementLines: StatementLine[]
+  channels: Channel[]
+  coupons: Coupon[]
+  modules: ModuleState
   accounts: Account[]
   manualEntries: JournalEntry[]
 }
@@ -199,7 +243,7 @@ function seed(): DB {
   const c: Product = { id: uid(), sku: 'HW-SCAN', name: 'Barcode scanner', price: 890, cost: 520, qty: 3, reorderPoint: 8, uom: 'unit' }
 
   const inv: Invoice = {
-    id: uid(), number: 'INV-0001', partnerId: p1.id, date: today(),
+    id: uid(), kind: 'invoice', number: 'INV-0001', partnerId: p1.id, date: today(),
     dueDate: addDays(today(), 30), status: 'sent', currency: 'BWP', note: '',
     lines: [
       { productId: b.id, label: 'POS terminal', qty: 2, price: 6200, taxRate: 14 },
@@ -235,7 +279,7 @@ function seed(): DB {
   pay.statementLineId = stmt[0].id
 
   return {
-    version: 3,
+    version: 4,
     company: {
       name: 'My Company', email: 'billing@mycompany.com',
       address: 'Gaborone, Botswana', currency: 'BWP', taxRate: 14, vatId: '',
@@ -252,9 +296,38 @@ function seed(): DB {
     expenses: [exp],
     payments: [pay],
     statementLines: stmt,
+    channels: DEFAULT_CHANNELS(),
+    coupons: [
+      { code: 'WELCOME10', kind: 'percent', value: 10, expires: '', limit: 0, used: 0 },
+    ],
+    modules: { enabled: [...DEFAULT_MODULES], requested: [] },
     accounts: CHART,
     manualEntries: [],
   }
+}
+
+/** Channels a brand-new workspace starts with — all off until configured. */
+export function DEFAULT_CHANNELS(): Channel[] {
+  const mk = (provider: string, label: string, enabled = false, account = ''): Channel => ({
+    id: uid(), kind: CHANNEL_KIND[provider] ?? 'card', provider, label,
+    enabled, account, detail: '', rate: 0,
+  })
+  return [
+    mk('eft', 'Bank transfer', true, '0123456789'),
+    mk('cash', 'Cash', true, 'Front desk'),
+    mk('stripe', 'Card payment'),
+    mk('mpesa', 'M-Pesa'),
+    mk('btc', 'Bitcoin'),
+  ]
+}
+
+/** Kind of each built-in payment provider (full catalogue lives in tender.ts). */
+const CHANNEL_KIND: Record<string, ChannelKind> = {
+  stripe: 'card', paypal: 'card', paystack: 'card', flutterwave: 'card', revolut: 'card',
+  sumup: 'card', skrill: 'card', mpesa: 'mobile', orange: 'mobile', myzaka: 'mobile',
+  smega: 'mobile', momo: 'mobile', airtel: 'mobile', ecocash: 'mobile', posomoney: 'mobile',
+  wise: 'bank', eft: 'bank', btc: 'crypto', eth: 'crypto', usdt: 'crypto',
+  lightning: 'crypto', cash: 'cash', voucher: 'voucher',
 }
 
 /** Default chart of accounts — small but a genuine double-entry structure. */
@@ -343,16 +416,23 @@ export function migrate(raw: Partial<DB> | null): DB {
   const accounts = [...stored, ...CHART.filter(c => !stored.some(a => a.code === c.code))]
 
   return {
-    version: 3,
+    version: 4,
     company: { ...base.company, ...(raw.company || {}) },
     partners: raw.partners ?? [],
     products: raw.products ?? [],
-    invoices,
+    // v3 -> v4: every pre-existing sales document is a tax invoice.
+    invoices: invoices.map(i => ({ ...i, kind: i.kind ?? 'invoice' })),
     moves: raw.moves ?? [],
     bills,
     expenses: raw.expenses ?? [],
     payments,
     statementLines: raw.statementLines ?? [],
+    channels: raw.channels ?? DEFAULT_CHANNELS(),
+    coupons: raw.coupons ?? [],
+    modules: {
+      enabled: raw.modules?.enabled ?? [...DEFAULT_MODULES],
+      requested: raw.modules?.requested ?? [],
+    },
     accounts,
     manualEntries: raw.manualEntries ?? [],
   }
@@ -438,12 +518,22 @@ export function money(v: number, currency = getDB().company.currency) {
   }).format(isFinite(v) ? v : 0)
 }
 
-export function nextInvoiceNumber(d: DB) {
-  const n = d.invoices.reduce((m, i) => {
+const DOC_PREFIX: Record<Invoice['kind'], string> = {
+  quote: 'QUO-', proforma: 'PRO-', invoice: 'INV-',
+}
+
+/** Next number in the sequence for a given document kind. */
+export function nextInvoiceNumber(d: DB, kind: Invoice['kind'] = 'invoice') {
+  const prefix = DOC_PREFIX[kind]
+  const n = d.invoices.filter(i => i.number.startsWith(prefix)).reduce((m, i) => {
     const x = parseInt(i.number.replace(/\D/g, ''), 10)
     return isNaN(x) ? m : Math.max(m, x)
   }, 0)
-  return 'INV-' + String(n + 1).padStart(4, '0')
+  return prefix + String(n + 1).padStart(4, '0')
+}
+
+export const docTitle: Record<Invoice['kind'], string> = {
+  quote: 'QUOTATION', proforma: 'PRO-FORMA INVOICE', invoice: 'TAX INVOICE',
 }
 
 export function isOverdue(inv: Invoice) {

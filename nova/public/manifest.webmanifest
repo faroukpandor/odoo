@@ -7,16 +7,62 @@
   "orientation": "any",
   "background_color": "#0b1220",
   "theme_color": "#0b1220",
-  "description": "Offline-first ERP: CRM, invoicing, purchasing, inventory and double-entry accounting in your browser.",
-  "categories": ["business", "finance", "productivity"],
+  "description": "Offline-first ERP: CRM, quotes, invoicing, delivery notes, purchasing, inventory, banking, payments (card, mobile money, crypto) and double-entry accounting \u2014 in your browser, on any device.",
+  "categories": [
+    "business",
+    "finance",
+    "productivity"
+  ],
   "icons": [
-    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ],
   "shortcuts": [
-    { "name": "New invoice", "url": "./#/invoices" },
-    { "name": "Reports", "url": "./#/reports" },
-    { "name": "Accounting", "url": "./#/accounting" }
-  ]
+    {
+      "name": "New invoice",
+      "short_name": "Invoice",
+      "url": "./#/invoices"
+    },
+    {
+      "name": "Record a payment",
+      "short_name": "Payment",
+      "url": "./#/banking"
+    },
+    {
+      "name": "Payment channels",
+      "short_name": "Channels",
+      "url": "./#/channels"
+    },
+    {
+      "name": "Reports",
+      "short_name": "Reports",
+      "url": "./#/reports"
+    }
+  ],
+  "display_override": [
+    "window-controls-overlay",
+    "standalone",
+    "minimal-ui"
+  ],
+  "launch_handler": {
+    "client_mode": "focus-existing"
+  },
+  "handle_links": "preferred",
+  "prefer_related_applications": false
 }

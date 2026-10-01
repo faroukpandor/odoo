@@ -31,6 +31,8 @@ export default function CommandPalette() {
     { label: 'Invoicing', hint: 'Customer invoices', to: '/invoices', group: 'Go to' },
     { label: 'Purchasing', hint: 'Bills & expenses', to: '/purchases', group: 'Go to' },
     { label: 'Banking', hint: 'Payments & reconciliation', to: '/banking', group: 'Go to' },
+    { label: 'Payment channels', hint: 'Cards, mobile money, crypto', to: '/channels', group: 'Go to' },
+    { label: 'Apps & modules', hint: 'Activate modules', to: '/apps', group: 'Go to' },
     { label: 'Inventory', hint: 'Products & stock', to: '/inventory', group: 'Go to' },
     { label: 'Accounting', hint: 'Journal & statements', to: '/accounting', group: 'Go to' },
     { label: 'Reports', hint: 'Ageing, VAT, analytics', to: '/reports', group: 'Go to' },

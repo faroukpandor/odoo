@@ -20,7 +20,7 @@ beforeEach(() => {
 })
 
 const inv = (o: Partial<Invoice>): Invoice => ({
-  id: uid(), number: 'INV', partnerId: 'c1', date: '2025-01-01', dueDate: '2025-01-31',
+  id: uid(), kind: 'invoice', number: 'INV', partnerId: 'c1', date: '2025-01-01', dueDate: '2025-01-31',
   status: 'sent', currency: 'BWP', note: '',
   lines: [{ productId: null, label: 'x', qty: 1, price: 1000, taxRate: 10 }], ...o,
 })

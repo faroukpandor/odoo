@@ -27,7 +27,7 @@ const yesterday = () => {
 }
 
 const mkInvoice = (over: Partial<Invoice> = {}): Invoice => ({
-  id: uid(), number: 'INV-T1', partnerId: null, date: today(), dueDate: today(),
+  id: uid(), kind: 'invoice', number: 'INV-T1', partnerId: null, date: today(), dueDate: today(),
   status: 'sent', currency: 'BWP', note: '',
   lines: [{ productId: null, label: 'Work', qty: 2, price: 100, taxRate: 10 }], // 220 total
   ...over,

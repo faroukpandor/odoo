@@ -8,6 +8,8 @@ import Invoices from './pages/Invoices'
 import Inventory from './pages/Inventory'
 import Purchases from './pages/Purchases'
 import Banking from './pages/Banking'
+import Apps from './pages/Apps'
+import Channels from './pages/Channels'
 import Accounting from './pages/Accounting'
 import Reports from './pages/Reports'
 import Settings from './pages/Settings'
@@ -30,6 +32,8 @@ function start() {
             <Route path="invoices" element={<Invoices />} />
             <Route path="purchases" element={<Purchases />} />
             <Route path="banking" element={<Banking />} />
+            <Route path="apps" element={<Apps />} />
+            <Route path="channels" element={<Channels />} />
             <Route path="inventory" element={<Inventory />} />
             <Route path="accounting" element={<Accounting />} />
             <Route path="reports" element={<Reports />} />
