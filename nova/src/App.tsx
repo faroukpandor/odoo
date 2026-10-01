@@ -7,6 +7,7 @@ const nav = [
   { to: '/crm', label: 'CRM', icon: '◈' },
   { to: '/invoices', label: 'Invoicing', icon: '▤' },
   { to: '/purchases', label: 'Purchasing', icon: '▣' },
+  { to: '/banking', label: 'Banking', icon: '⛁' },
   { to: '/inventory', label: 'Inventory', icon: '▦' },
   { to: '/accounting', label: 'Accounting', icon: '∑' },
   { to: '/reports', label: 'Reports', icon: '◱' },

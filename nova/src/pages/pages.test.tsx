@@ -7,6 +7,7 @@ import Dashboard from './Dashboard'
 import CRM from './CRM'
 import Invoices from './Invoices'
 import Purchases from './Purchases'
+import Banking from './Banking'
 import Inventory from './Inventory'
 import Accounting from './Accounting'
 import Reports from './Reports'
@@ -23,6 +24,7 @@ const routes: [string, string, React.ReactNode][] = [
   ['/crm', 'CRM', <CRM key="c" />],
   ['/invoices', 'Invoicing', <Invoices key="i" />],
   ['/purchases', 'Purchasing', <Purchases key="p" />],
+  ['/banking', 'Banking', <Banking key="b" />],
   ['/inventory', 'Inventory', <Inventory key="n" />],
   ['/accounting', 'Accounting', <Accounting key="a" />],
   ['/reports', 'Reports', <Reports key="r" />],

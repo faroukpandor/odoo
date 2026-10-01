@@ -112,7 +112,8 @@ export default function Settings() {
         <h2>Storage</h2>
         <p className="muted">
           {db.partners.length} contacts · {db.products.length} products · {db.invoices.length} invoices ·{' '}
-          {db.bills.length} bills · {db.expenses.length} expenses · {db.moves.length} stock moves ·{' '}
+          {db.bills.length} bills · {db.payments.length} payments · {db.expenses.length} expenses ·{' '}
+          {db.moves.length} stock moves ·{' '}
           {db.manualEntries.length} manual journal entries
         </p>
         {storage && (

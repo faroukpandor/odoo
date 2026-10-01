@@ -12,7 +12,10 @@ const acc = (code: string) => trialBalance(getDB()).find(b => b.account.code ===
 
 beforeEach(() => {
   resetDB()
-  update(d => { d.invoices = []; d.bills = []; d.expenses = []; d.manualEntries = [] })
+  update(d => {
+    d.invoices = []; d.bills = []; d.expenses = []
+    d.manualEntries = []; d.payments = []; d.statementLines = []
+  })
 })
 
 const mkInvoice = (over: Partial<Invoice> = {}): Invoice => ({

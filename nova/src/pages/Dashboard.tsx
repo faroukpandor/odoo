@@ -1,17 +1,21 @@
 import { Link } from 'react-router-dom'
-import { useDB, invoiceTotals, money, isOverdue, stockOf } from '../lib/db'
-import { billTotals, expenseTotals, profitAndLoss } from '../lib/accounting'
+import { useDB, invoiceTotals, billTotals, expenseTotals, money, isOverdue, stockOf, balanceDue } from '../lib/db'
+import { profitAndLoss, trialBalance } from '../lib/accounting'
+import { totalReceivable, totalPayable, cashFlow, reconciliation } from '../lib/payments'
 
 export default function Dashboard() {
   const db = useDB()
   const today = new Date().toISOString().slice(0, 10)
 
   const invoiced = db.invoices.reduce((s, i) => s + invoiceTotals(i).total, 0)
-  const paid = db.invoices.filter(i => i.status === 'paid')
-    .reduce((s, i) => s + invoiceTotals(i).total, 0)
-  const outstanding = invoiced - paid
+  const outstanding = totalReceivable(db)
   const overdue = db.invoices.filter(isOverdue)
-    .reduce((s, i) => s + invoiceTotals(i).total, 0)
+    .reduce((s, i) => s + balanceDue(db, 'invoice', i.id, invoiceTotals(i).total), 0)
+  const tb = trialBalance(db)
+  const cashPos = (tb.find(b => b.account.code === '1000')?.balance ?? 0)
+    + (tb.find(b => b.account.code === '1010')?.balance ?? 0)
+  const flow = cashFlow(db, today.slice(0, 7) + '-01', today)
+  const rec = reconciliation(db)
 
   const pipeline = db.partners
     .filter(p => !['won', 'lost'].includes(p.stage))
@@ -20,8 +24,7 @@ export default function Dashboard() {
   const low = db.products.filter(p => stockOf(db, p.id) <= p.reorderPoint)
   const stockValue = db.products.reduce((s, p) => s + stockOf(db, p.id) * p.cost, 0)
 
-  const payables = db.bills.filter(b => b.status !== 'paid')
-    .reduce((s, b) => s + billTotals(b).total, 0)
+  const payables = totalPayable(db)
   const spend = db.bills.reduce((s, b) => s + billTotals(b).total, 0)
     + db.expenses.reduce((s, e) => s + expenseTotals(e).total, 0)
   const pl = profitAndLoss(db)
@@ -44,6 +47,7 @@ export default function Dashboard() {
       </header>
 
       <div className="kpis">
+        <Kpi label="Cash position" value={money(cashPos)} tone={cashPos >= 0 ? 'brand' : 'bad'} />
         <Kpi label="Revenue invoiced" value={money(invoiced)} tone="brand" />
         <Kpi label="Outstanding" value={money(outstanding)} tone="warn" />
         <Kpi label="Overdue" value={money(overdue)} tone={overdue > 0 ? 'bad' : 'ok'} />
@@ -51,6 +55,7 @@ export default function Dashboard() {
         <Kpi label="Net profit" value={money(pl.net)} tone={pl.net >= 0 ? 'ok' : 'bad'} />
         <Kpi label="Owed to vendors" value={money(payables)} tone={payables ? 'warn' : 'ok'} />
         <Kpi label="Total spend" value={money(spend)} />
+        <Kpi label="Cash in / out this month" value={`${money(flow.received)} / ${money(flow.spent)}`} />
         <Kpi label="Stock value (cost)" value={money(stockValue)} />
         <Kpi label="Low-stock items" value={String(low.length)} tone={low.length ? 'bad' : 'ok'} />
       </div>
@@ -74,14 +79,19 @@ export default function Dashboard() {
           <h2>Needs attention</h2>
           <ul className="feed">
             {db.invoices.filter(isOverdue).map(i => (
-              <li key={i.id}><b className="bad">Overdue</b> {i.number} · {money(invoiceTotals(i).total)}
+              <li key={i.id}><b className="bad">Overdue</b> {i.number} · {money(balanceDue(db, 'invoice', i.id, invoiceTotals(i).total))} still due
                 <Link className="link" to="/invoices"> open</Link></li>
             ))}
+            {!rec.clean && (
+              <li><b className="warn">Reconcile</b> {rec.unmatchedLines.length} statement line(s) and {rec.unreconciled.length} payment(s) unmatched
+                <Link className="link" to="/banking"> open</Link></li>
+            )}
             {low.map(p => (
               <li key={p.id}><b className="warn">Reorder</b> {p.name} · {stockOf(db, p.id)} {p.uom} left
                 <Link className="link" to="/inventory"> open</Link></li>
             ))}
-            {db.bills.filter(b => b.status !== 'paid' && b.dueDate < today).map(b => (
+            {db.bills.filter(b => b.status !== 'draft' && b.dueDate < today
+              && balanceDue(db, 'bill', b.id, billTotals(b).total) > 0.005).map(b => (
               <li key={b.id}><b className="warn">Bill due</b> {b.number} · {money(billTotals(b).total)}
                 <Link className="link" to="/purchases"> open</Link></li>
             ))}

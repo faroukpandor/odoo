@@ -3,8 +3,9 @@
  * and cash movement. All pure functions over the in-memory DB so they are
  * trivially testable and render instantly offline.
  */
-import { DB, Invoice, Bill, invoiceTotals, money } from './db'
-import { billTotals, expenseTotals, trialBalance } from './accounting'
+import { DB, Invoice, Bill, invoiceTotals, billTotals, expenseTotals, balanceDue, money } from './db'
+import { trialBalance } from './accounting'
+import { openInvoices, openBills } from './payments'
 
 export const BUCKETS = ['current', '1-30', '31-60', '61-90', '90+'] as const
 export type Bucket = typeof BUCKETS[number]
@@ -53,18 +54,19 @@ function age<T extends Invoice | Bill>(
 
 /** Unpaid customer invoices grouped by customer and days overdue. */
 export function receivablesAgeing(d: DB, asAt: string) {
-  const open = d.invoices.filter(i => i.status !== 'draft' && i.status !== 'paid')
+  const open = openInvoices(d).map(r => r.doc)
   return age(open, asAt,
     i => d.partners.find(p => p.id === i.partnerId)?.name ?? 'Unknown customer',
-    i => invoiceTotals(i).total)
+    // Age what is still owed, not the invoice face value — part-payments count.
+    i => balanceDue(d, 'invoice', i.id, invoiceTotals(i).total))
 }
 
 /** Unpaid vendor bills grouped by vendor and days overdue. */
 export function payablesAgeing(d: DB, asAt: string) {
-  const open = d.bills.filter(b => b.status !== 'draft' && b.status !== 'paid')
+  const open = openBills(d).map(r => r.doc)
   return age(open, asAt,
     b => d.partners.find(p => p.id === b.partnerId)?.name ?? 'Unknown vendor',
-    b => billTotals(b).total)
+    b => balanceDue(d, 'bill', b.id, billTotals(b).total))
 }
 
 /** VAT/GST return: output tax charged less input tax reclaimable. */
@@ -105,8 +107,13 @@ export function topCustomers(d: DB, limit = 10) {
 
 /** Cash in/out derived from the ledger's bank account movements. */
 export function cashSummary(d: DB, upTo: string) {
-  const bank = trialBalance(d, upTo).find(b => b.account.code === '1000')
-  return { received: bank?.debit ?? 0, spent: bank?.credit ?? 0, balance: bank?.balance ?? 0 }
+  const tb = trialBalance(d, upTo)
+  const rows = tb.filter(b => b.account.code === '1000' || b.account.code === '1010')
+  return {
+    received: rows.reduce((s, b) => s + b.debit, 0),
+    spent: rows.reduce((s, b) => s + b.credit, 0),
+    balance: rows.reduce((s, b) => s + b.balance, 0),
+  }
 }
 
 /* ---------- CSV export ---------- */

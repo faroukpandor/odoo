@@ -6,21 +6,12 @@
  * for adjustments. Every generated entry is balanced by construction.
  */
 import {
-  DB, JournalEntry, JournalLine, Account, Bill, Expense, Invoice,
-  invoiceTotals, uid,
+  DB, JournalEntry, JournalLine, Account, Bill, Expense, Invoice, Payment,
+  invoiceTotals, billTotals, expenseTotals, paymentsFor, uid,
 } from './db'
+import { cashAccount } from './payments'
 
-export const billTotals = (b: Bill) => {
-  const net = b.lines.reduce((s, l) => s + l.qty * l.price, 0)
-  const tax = b.lines.reduce((s, l) => s + (l.qty * l.price * l.taxRate) / 100, 0)
-  return { net, tax, total: net + tax }
-}
-
-export const expenseTotals = (e: Expense) => {
-  const net = e.amount
-  const tax = (e.amount * e.taxRate) / 100
-  return { net, tax, total: net + tax }
-}
+export { billTotals, expenseTotals }
 
 const line = (account: string, debit: number, credit: number): JournalLine =>
   ({ account, debit: round(debit), credit: round(credit) })
@@ -39,13 +30,6 @@ function invoiceEntries(inv: Invoice): JournalEntry[] {
       ...(t.tax ? [line('2100', 0, t.tax)] : []), // VAT payable
     ],
   }]
-  if (inv.status === 'paid') {
-    out.push({
-      id: 'je-invpay-' + inv.id, date: inv.date, ref: inv.number,
-      memo: 'Customer payment received', source: 'invoice',
-      lines: [line('1000', t.total, 0), line('1100', 0, t.total)],
-    })
-  }
   return out
 }
 
@@ -66,13 +50,64 @@ function billEntries(b: Bill): JournalEntry[] {
       line('2000', 0, t.total),                   // AP
     ],
   }]
-  if (b.status === 'paid') {
-    out.push({
-      id: 'je-billpay-' + b.id, date: b.date, ref: b.number,
-      memo: 'Vendor payment', source: 'bill',
-      lines: [line('2000', t.total, 0), line('1000', 0, t.total)],
-    })
-  }
+  return out
+}
+
+/**
+ * Cash side of the books. A receipt moves money from receivables into the bank
+ * (or cash box); a disbursement clears payables. Payments pointing at a deleted
+ * document are ignored so the ledger can never reference a ghost.
+ */
+function paymentEntries(d: DB): JournalEntry[] {
+  return d.payments.flatMap((p): JournalEntry[] => {
+    if (p.docType === 'invoice' && !d.invoices.some(i => i.id === p.docId)) return []
+    if (p.docType === 'bill' && !d.bills.some(b => b.id === p.docId)) return []
+    const cash = cashAccount(p)
+    const label = docLabelFor(d, p)
+    return [{
+      id: 'je-pay-' + p.id, date: p.date, ref: p.ref || label,
+      memo: p.kind === 'in' ? `Payment received · ${label}` : `Payment made · ${label}`,
+      source: 'payment',
+      lines: p.kind === 'in'
+        ? [line(cash, p.amount, 0), line('1100', 0, p.amount)]
+        : [line('2000', p.amount, 0), line(cash, 0, p.amount)],
+    }]
+  })
+}
+
+function docLabelFor(d: DB, p: Payment) {
+  if (p.docType === 'invoice') return d.invoices.find(i => i.id === p.docId)?.number ?? 'invoice'
+  if (p.docType === 'bill') return d.bills.find(b => b.id === p.docId)?.number ?? 'bill'
+  return 'on account'
+}
+
+/**
+ * Backwards compatibility: a pre-v3 document flagged `paid` with no payment
+ * record still has to settle, otherwise importing an old backup would leave
+ * receivables permanently outstanding.
+ */
+function legacySettlement(d: DB): JournalEntry[] {
+  const out: JournalEntry[] = []
+  d.invoices.forEach(i => {
+    if (i.status === 'paid' && paymentsFor(d, 'invoice', i.id).length === 0) {
+      const t = invoiceTotals(i).total
+      out.push({
+        id: 'je-invpay-' + i.id, date: i.date, ref: i.number,
+        memo: 'Customer payment received', source: 'payment',
+        lines: [line('1000', t, 0), line('1100', 0, t)],
+      })
+    }
+  })
+  d.bills.forEach(b => {
+    if (b.status === 'paid' && paymentsFor(d, 'bill', b.id).length === 0) {
+      const t = billTotals(b).total
+      out.push({
+        id: 'je-billpay-' + b.id, date: b.date, ref: b.number,
+        memo: 'Vendor payment', source: 'payment',
+        lines: [line('2000', t, 0), line('1000', 0, t)],
+      })
+    }
+  })
   return out
 }
 
@@ -98,6 +133,8 @@ export function journal(d: DB): JournalEntry[] {
     ...d.invoices.flatMap(invoiceEntries),
     ...d.bills.flatMap(billEntries),
     ...d.expenses.flatMap(expenseEntries),
+    ...paymentEntries(d),
+    ...legacySettlement(d),
     ...d.manualEntries,
   ].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
 }

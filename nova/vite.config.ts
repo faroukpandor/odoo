@@ -6,5 +6,6 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   base: process.env.NOVA_BASE || '/',
+  server: { host: true, allowedHosts: true },
   build: { outDir: 'dist' },
 })

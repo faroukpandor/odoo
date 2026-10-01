@@ -1,6 +1,9 @@
 import { useState } from 'react'
-import { useDB, update, uid, today, money, Bill, BillLine, Expense, getDB } from '../lib/db'
-import { billTotals, expenseTotals } from '../lib/accounting'
+import {
+  useDB, update, uid, today, money, balanceDue, paidAmount,
+  billTotals, expenseTotals, Bill, BillLine, Expense, Payment, getDB,
+} from '../lib/db'
+import { billStatus, totalPayable } from '../lib/payments'
 import { Modal } from './CRM'
 import { useToast } from '../lib/ui'
 
@@ -38,9 +41,21 @@ export default function Purchases() {
 
   const spendBills = db.bills.reduce((s, b) => s + billTotals(b).total, 0)
   const spendExp = db.expenses.reduce((s, e) => s + expenseTotals(e).total, 0)
-  const unpaid = db.bills.filter(b => b.status !== 'paid').reduce((s, b) => s + billTotals(b).total, 0)
+  const unpaid = totalPayable(db)
   const owedStaff = db.expenses.filter(e => e.paidBy === 'employee' && !e.reimbursed)
     .reduce((s, e) => s + expenseTotals(e).total, 0)
+
+  /** Settles the outstanding balance of a bill with a real payment record. */
+  function payBill(b: Bill) {
+    const due = balanceDue(db, 'bill', b.id, billTotals(b).total)
+    const p: Payment = {
+      id: uid(), date: today(), kind: 'out', partnerId: b.partnerId,
+      docType: 'bill', docId: b.id, amount: due, method: 'bank',
+      ref: b.number, reconciled: false, statementLineId: null,
+    }
+    update(d => { d.payments.unshift(p) })
+    toast(`${money(due)} paid against ${b.number}`)
+  }
 
   function saveBill(b: Bill) {
     update(d => {
@@ -90,27 +105,34 @@ export default function Purchases() {
 
       {tab === 'bills' ? (
         <table className="table">
-          <thead><tr><th>Number</th><th>Vendor</th><th>Date</th><th>Due</th><th className="r">Total</th><th>Status</th><th></th></tr></thead>
+          <thead><tr><th>Number</th><th>Vendor</th><th>Date</th><th>Due date</th>
+            <th className="r">Total</th><th className="r">Paid</th><th className="r">Balance</th>
+            <th>Status</th><th></th></tr></thead>
           <tbody>
             {db.bills.map(b => {
               const p = db.partners.find(x => x.id === b.partnerId)
+              const total = billTotals(b).total
+              const st = billStatus(db, b)
+              const due = balanceDue(db, 'bill', b.id, total)
               return (
                 <tr key={b.id}>
                   <td><b>{b.number}</b></td>
                   <td>{p?.name ?? '—'}</td>
                   <td>{b.date}</td>
                   <td>{b.dueDate}</td>
-                  <td className="r">{money(billTotals(b).total, b.currency)}</td>
-                  <td><span className={'badge ' + (b.status === 'paid' ? 'paid' : b.status === 'draft' ? 'draft' : 'sent')}>{b.status}</span></td>
+                  <td className="r">{money(total, b.currency)}</td>
+                  <td className="r muted">{money(paidAmount(db, 'bill', b.id), b.currency)}</td>
+                  <td className={'r ' + (due > 0.005 ? 'warn' : 'ok')}>{money(due, b.currency)}</td>
+                  <td><span className={'badge ' + st}>{st}</span></td>
                   <td className="r nowrap">
                     <button className="btn tiny" onClick={() => setBill(b)}>Edit</button>
-                    {b.status !== 'paid' && <button className="btn tiny ok"
-                      onClick={() => update(d => { const x = d.bills.find(y => y.id === b.id); if (x) x.status = 'paid' })}>Mark paid</button>}
+                    {st !== 'paid' && st !== 'draft' &&
+                      <button className="btn tiny ok" onClick={() => payBill(b)}>Register payment</button>}
                   </td>
                 </tr>
               )
             })}
-            {db.bills.length === 0 && <tr><td colSpan={7} className="muted">No bills yet.</td></tr>}
+            {db.bills.length === 0 && <tr><td colSpan={9} className="muted">No bills yet.</td></tr>}
           </tbody>
         </table>
       ) : (

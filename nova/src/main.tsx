@@ -7,6 +7,7 @@ import CRM from './pages/CRM'
 import Invoices from './pages/Invoices'
 import Inventory from './pages/Inventory'
 import Purchases from './pages/Purchases'
+import Banking from './pages/Banking'
 import Accounting from './pages/Accounting'
 import Reports from './pages/Reports'
 import Settings from './pages/Settings'
@@ -28,6 +29,7 @@ function start() {
             <Route path="crm" element={<CRM />} />
             <Route path="invoices" element={<Invoices />} />
             <Route path="purchases" element={<Purchases />} />
+            <Route path="banking" element={<Banking />} />
             <Route path="inventory" element={<Inventory />} />
             <Route path="accounting" element={<Accounting />} />
             <Route path="reports" element={<Reports />} />

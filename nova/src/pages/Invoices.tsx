@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import {
   useDB, update, uid, today, money, invoiceTotals, nextInvoiceNumber,
-  isOverdue, Invoice, InvoiceLine, getDB,
+  balanceDue, paidAmount, Invoice, InvoiceLine, Payment, getDB,
 } from '../lib/db'
+import { invoiceStatus } from '../lib/payments'
 import { Modal } from './CRM'
 import { useToast } from '../lib/ui'
 
@@ -44,9 +45,25 @@ export default function Invoices() {
     setEdit(null)
   }
 
-  const setStatus = (id: string, status: Invoice['status']) => {
-    update(d => { const i = d.invoices.find(x => x.id === id); if (i) i.status = status })
-    toast(`Invoice marked ${status}`)
+  const send = (id: string) => {
+    update(d => { const i = d.invoices.find(x => x.id === id); if (i) i.status = 'sent' })
+    toast('Invoice marked sent')
+  }
+
+  /** One-click settlement: records a real payment for the outstanding balance. */
+  function settle(inv: Invoice) {
+    const due = balanceDue(db, 'invoice', inv.id, invoiceTotals(inv).total)
+    const p: Payment = {
+      id: uid(), date: today(), kind: 'in', partnerId: inv.partnerId,
+      docType: 'invoice', docId: inv.id, amount: due, method: 'bank',
+      ref: inv.number, reconciled: false, statementLineId: null,
+    }
+    update(d => {
+      d.payments.unshift(p)
+      const i = d.invoices.find(x => x.id === inv.id)
+      if (i && i.status === 'draft') i.status = 'sent'
+    })
+    toast(`${money(due)} received against ${inv.number}`)
   }
 
   return (
@@ -61,31 +78,37 @@ export default function Invoices() {
 
       <table className="table">
         <thead><tr>
-          <th>Number</th><th>Customer</th><th>Date</th><th>Due</th>
-          <th className="r">Total</th><th>Status</th><th></th>
+          <th>Number</th><th>Customer</th><th>Date</th><th>Due date</th>
+          <th className="r">Total</th><th className="r">Paid</th><th className="r">Balance</th>
+          <th>Status</th><th></th>
         </tr></thead>
         <tbody>
           {db.invoices.map(i => {
             const p = db.partners.find(x => x.id === i.partnerId)
-            const st = isOverdue(i) ? 'overdue' : i.status
+            const total = invoiceTotals(i).total
+            const st = invoiceStatus(db, i)
+            const due = balanceDue(db, 'invoice', i.id, total)
             return (
               <tr key={i.id}>
                 <td><b>{i.number}</b></td>
                 <td>{p?.name ?? '—'}</td>
                 <td>{i.date}</td>
                 <td>{i.dueDate}</td>
-                <td className="r">{money(invoiceTotals(i).total, i.currency)}</td>
+                <td className="r">{money(total, i.currency)}</td>
+                <td className="r muted">{money(paidAmount(db, 'invoice', i.id), i.currency)}</td>
+                <td className={'r ' + (due > 0.005 ? 'warn' : 'ok')}>{money(due, i.currency)}</td>
                 <td><span className={'badge ' + st}>{st}</span></td>
                 <td className="r nowrap">
                   <button className="btn tiny" onClick={() => setView(i)}>View</button>
                   <button className="btn tiny" onClick={() => setEdit(i)}>Edit</button>
-                  {i.status !== 'paid' &&
-                    <button className="btn tiny ok" onClick={() => setStatus(i.id, 'paid')}>Mark paid</button>}
+                  {i.status === 'draft' && <button className="btn tiny" onClick={() => send(i.id)}>Send</button>}
+                  {st !== 'paid' &&
+                    <button className="btn tiny ok" onClick={() => settle(i)}>Register payment</button>}
                 </td>
               </tr>
             )
           })}
-          {db.invoices.length === 0 && <tr><td colSpan={7} className="muted">No invoices yet.</td></tr>}
+          {db.invoices.length === 0 && <tr><td colSpan={9} className="muted">No invoices yet.</td></tr>}
         </tbody>
       </table>
 
@@ -199,7 +222,10 @@ function Preview({ inv, onClose }: { inv: Invoice; onClose: () => void }) {
         <div className="totals">
           <div><span>Subtotal</span><b>{money(t.net, inv.currency)}</b></div>
           <div><span>Tax</span><b>{money(t.tax, inv.currency)}</b></div>
-          <div className="grand"><span>Total due</span><b>{money(t.total, inv.currency)}</b></div>
+          <div><span>Total</span><b>{money(t.total, inv.currency)}</b></div>
+          <div><span>Paid</span><b>{money(paidAmount(db, 'invoice', inv.id), inv.currency)}</b></div>
+          <div className="grand"><span>Balance due</span>
+            <b>{money(balanceDue(db, 'invoice', inv.id, t.total), inv.currency)}</b></div>
         </div>
       </div>
       <div className="form-actions">

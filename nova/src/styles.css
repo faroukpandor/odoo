@@ -168,3 +168,15 @@ kbd { background: var(--panel2); border: 1px solid var(--line); border-radius: 4
   border: 1px solid var(--line); border-radius: 14px; }
 .crash pre { background: #0e1729; padding: 12px; border-radius: 9px; overflow: auto;
   font-size: 12px; color: var(--bad); }
+
+/* ---------- banking ---------- */
+.badge.partial { background: rgba(255,183,77,.18); color: var(--warn); }
+.badge.open { background: rgba(91,140,255,.18); color: var(--brand); }
+button.badge { border: 0; cursor: pointer; font-family: inherit; }
+.row-right { display: flex; justify-content: flex-end; margin-bottom: 8px; }
+.section-title { font-size: 15px; margin: 22px 0 10px; }
+.paste { width: 100%; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+.check { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.check input { width: auto; }
+.note { font-size: 13px; margin: 10px 0 0; padding: 9px 11px; border-radius: 10px; background: var(--panel2); }
+.note.ok { color: var(--ok); } .note.warn { color: var(--warn); }

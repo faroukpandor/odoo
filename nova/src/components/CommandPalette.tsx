@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useDB, money, invoiceTotals } from '../lib/db'
+import { docLabel } from '../lib/payments'
 import { useHotkey } from '../lib/ui'
 
 interface Item { label: string; hint: string; to: string; group: string }
@@ -29,6 +30,7 @@ export default function CommandPalette() {
     { label: 'CRM', hint: 'Contacts & pipeline', to: '/crm', group: 'Go to' },
     { label: 'Invoicing', hint: 'Customer invoices', to: '/invoices', group: 'Go to' },
     { label: 'Purchasing', hint: 'Bills & expenses', to: '/purchases', group: 'Go to' },
+    { label: 'Banking', hint: 'Payments & reconciliation', to: '/banking', group: 'Go to' },
     { label: 'Inventory', hint: 'Products & stock', to: '/inventory', group: 'Go to' },
     { label: 'Accounting', hint: 'Journal & statements', to: '/accounting', group: 'Go to' },
     { label: 'Reports', hint: 'Ageing, VAT, analytics', to: '/reports', group: 'Go to' },
@@ -41,6 +43,11 @@ export default function CommandPalette() {
     })),
     ...db.bills.map(b => ({ label: b.number, hint: b.status, to: '/purchases', group: 'Bills' })),
     ...db.products.map(p => ({ label: `${p.sku} — ${p.name}`, hint: money(p.price), to: '/inventory', group: 'Products' })),
+    ...db.payments.map(p => ({
+      label: `${p.kind === 'in' ? 'Receipt' : 'Payment'} ${money(p.amount)}`,
+      hint: `${p.date} · ${docLabel(db, p)}${p.ref ? ' · ' + p.ref : ''}`,
+      to: '/banking', group: 'Payments',
+    })),
   ], [db])
 
   const results = useMemo(() => {

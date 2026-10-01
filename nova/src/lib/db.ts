@@ -93,6 +93,33 @@ export interface Expense {
   note: string
 }
 
+export interface Payment {
+  id: ID
+  date: string
+  /** `in` = money received from a customer, `out` = money paid to a vendor. */
+  kind: 'in' | 'out'
+  partnerId: ID | null
+  /** What the money settles. `null` = payment on account (unallocated). */
+  docType: 'invoice' | 'bill' | null
+  docId: ID | null
+  amount: number
+  method: 'bank' | 'cash'
+  ref: string
+  /** True once the payment has been ticked off against a bank statement. */
+  reconciled: boolean
+  statementLineId: ID | null
+}
+
+/** A line imported from a bank statement, awaiting matching. */
+export interface StatementLine {
+  id: ID
+  date: string
+  description: string
+  /** Signed: positive = money in, negative = money out. */
+  amount: number
+  matchedPaymentId: ID | null
+}
+
 export interface Account {
   code: string
   name: string
@@ -110,7 +137,7 @@ export interface JournalEntry {
   date: string
   ref: string
   memo: string
-  source: 'invoice' | 'bill' | 'expense' | 'manual'
+  source: 'invoice' | 'bill' | 'expense' | 'payment' | 'manual'
   lines: JournalLine[]
 }
 
@@ -132,6 +159,8 @@ export interface DB {
   moves: StockMove[]
   bills: Bill[]
   expenses: Expense[]
+  payments: Payment[]
+  statementLines: StatementLine[]
   accounts: Account[]
   manualEntries: JournalEntry[]
 }
@@ -189,8 +218,24 @@ function seed(): DB {
     taxRate: 14, account: '6300', paidBy: 'company', reimbursed: true, note: '',
   }
 
+  // A part-payment on the open invoice, so the demo shows a realistic
+  // "partially settled" document rather than a binary paid/unpaid flag.
+  const pay: Payment = {
+    id: uid(), date: today(), kind: 'in', partnerId: p1.id,
+    docType: 'invoice', docId: inv.id, amount: 10000, method: 'bank',
+    ref: 'EFT 8841', reconciled: true, statementLineId: null,
+  }
+
+  // One unmatched statement line waiting to be reconciled.
+  const stmt: StatementLine[] = [
+    { id: uid(), date: today(), description: 'EFT 8841 KALAHARI FRESH', amount: 10000, matchedPaymentId: pay.id },
+    { id: uid(), date: today(), description: 'SOUTHERN SUPPLY CO DEBIT', amount: -46740, matchedPaymentId: null },
+  ]
+  stmt[0].matchedPaymentId = pay.id
+  pay.statementLineId = stmt[0].id
+
   return {
-    version: 2,
+    version: 3,
     company: {
       name: 'My Company', email: 'billing@mycompany.com',
       address: 'Gaborone, Botswana', currency: 'BWP', taxRate: 14, vatId: '',
@@ -205,6 +250,8 @@ function seed(): DB {
     ],
     bills: [bill],
     expenses: [exp],
+    payments: [pay],
+    statementLines: stmt,
     accounts: CHART,
     manualEntries: [],
   }
@@ -213,6 +260,7 @@ function seed(): DB {
 /** Default chart of accounts — small but a genuine double-entry structure. */
 export const CHART: Account[] = [
   { code: '1000', name: 'Bank', type: 'asset' },
+  { code: '1010', name: 'Cash on hand', type: 'asset' },
   { code: '1100', name: 'Accounts receivable', type: 'asset' },
   { code: '1300', name: 'Inventory', type: 'asset' },
   { code: '1400', name: 'VAT receivable (input)', type: 'asset' },
@@ -271,16 +319,41 @@ async function idbPut(value: DB) {
 export function migrate(raw: Partial<DB> | null): DB {
   if (!raw || !Array.isArray(raw.partners)) return seed()
   const base = seed()
+  const invoices = raw.invoices ?? []
+  const bills = raw.bills ?? []
+
+  // v2 -> v3: documents used to carry only a binary `paid` flag. Convert each
+  // settled document into a real payment so cash and documents agree.
+  const payments: Payment[] = raw.payments ?? [
+    ...invoices.filter(i => i.status === 'paid').map((i): Payment => ({
+      id: uid(), date: i.date, kind: 'in', partnerId: i.partnerId,
+      docType: 'invoice', docId: i.id, amount: invoiceTotals(i).total,
+      method: 'bank', ref: i.number, reconciled: false, statementLineId: null,
+    })),
+    ...bills.filter(b => b.status === 'paid').map((b): Payment => ({
+      id: uid(), date: b.date, kind: 'out', partnerId: b.partnerId,
+      docType: 'bill', docId: b.id, amount: billTotals(b).total,
+      method: 'bank', ref: b.number, reconciled: false, statementLineId: null,
+    })),
+  ]
+
+  // Keep accounts the user added, but guarantee accounts introduced by newer
+  // versions (e.g. cash on hand) always exist.
+  const stored = raw.accounts && raw.accounts.length ? raw.accounts : CHART
+  const accounts = [...stored, ...CHART.filter(c => !stored.some(a => a.code === c.code))]
+
   return {
-    version: 2,
+    version: 3,
     company: { ...base.company, ...(raw.company || {}) },
     partners: raw.partners ?? [],
     products: raw.products ?? [],
-    invoices: raw.invoices ?? [],
+    invoices,
     moves: raw.moves ?? [],
-    bills: raw.bills ?? [],
+    bills,
     expenses: raw.expenses ?? [],
-    accounts: raw.accounts && raw.accounts.length ? raw.accounts : CHART,
+    payments,
+    statementLines: raw.statementLines ?? [],
+    accounts,
     manualEntries: raw.manualEntries ?? [],
   }
 }
@@ -341,6 +414,18 @@ export function useDB(): DB {
 export const lineNet = (l: InvoiceLine) => l.qty * l.price
 export const lineTax = (l: InvoiceLine) => (lineNet(l) * l.taxRate) / 100
 
+export const billTotals = (b: Bill) => {
+  const net = b.lines.reduce((s, l) => s + l.qty * l.price, 0)
+  const tax = b.lines.reduce((s, l) => s + (l.qty * l.price * l.taxRate) / 100, 0)
+  return { net, tax, total: net + tax }
+}
+
+export const expenseTotals = (e: Expense) => {
+  const net = e.amount
+  const tax = (e.amount * e.taxRate) / 100
+  return { net, tax, total: net + tax }
+}
+
 export function invoiceTotals(inv: Invoice) {
   const net = inv.lines.reduce((s, l) => s + lineNet(l), 0)
   const tax = inv.lines.reduce((s, l) => s + lineTax(l), 0)
@@ -362,8 +447,29 @@ export function nextInvoiceNumber(d: DB) {
 }
 
 export function isOverdue(inv: Invoice) {
-  return inv.status !== 'paid' && inv.dueDate < today()
+  if (inv.status === 'draft') return false
+  // Pre-v3 snapshots used a paid flag instead of payment records.
+  if (inv.status === 'paid' && paymentsFor(getDB(), 'invoice', inv.id).length === 0) return false
+  return balanceDue(getDB(), 'invoice', inv.id, invoiceTotals(inv).total) > 0.005
+    && inv.dueDate < today()
 }
+
+/* ---------- payments ---------- */
+
+/** Every payment allocated to a given document. */
+export function paymentsFor(d: DB, docType: 'invoice' | 'bill', docId: ID) {
+  return d.payments.filter(p => p.docType === docType && p.docId === docId)
+}
+
+export function paidAmount(d: DB, docType: 'invoice' | 'bill', docId: ID) {
+  return round2(paymentsFor(d, docType, docId).reduce((s, p) => s + p.amount, 0))
+}
+
+export function balanceDue(d: DB, docType: 'invoice' | 'bill', docId: ID, total: number) {
+  return round2(total - paidAmount(d, docType, docId))
+}
+
+export const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
 
 export function stockOf(d: DB, productId: ID) {
   return d.moves.reduce((s, m) => {
