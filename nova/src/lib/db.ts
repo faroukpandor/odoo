@@ -185,10 +185,25 @@ export interface JournalEntry {
 export interface Company {
   name: string
   email: string
+  phone: string
   address: string
+  /** ISO 3166-1 alpha-2, used to recommend local payment rails and tax wording. */
+  country: string
   currency: string
   taxRate: number
+  /** What the tax is called locally: VAT, GST, Sales tax… */
+  taxLabel: string
   vatId: string
+  /** Financial year start, e.g. '04-01' for 1 April. */
+  fyStart: string
+}
+
+/** First-run wizard state and the getting-started checklist. */
+export interface Setup {
+  done: boolean
+  /** Last wizard step the user completed, so it can resume. */
+  step: number
+  dismissedChecklist: boolean
 }
 
 export interface DB {
@@ -205,6 +220,7 @@ export interface DB {
   channels: Channel[]
   coupons: Coupon[]
   modules: ModuleState
+  setup: Setup
   accounts: Account[]
   manualEntries: JournalEntry[]
 }
@@ -279,10 +295,11 @@ function seed(): DB {
   pay.statementLineId = stmt[0].id
 
   return {
-    version: 4,
+    version: 5,
     company: {
-      name: 'My Company', email: 'billing@mycompany.com',
-      address: 'Gaborone, Botswana', currency: 'BWP', taxRate: 14, vatId: '',
+      name: 'My Company', email: 'billing@mycompany.com', phone: '',
+      address: 'Gaborone, Botswana', country: 'BW', currency: 'BWP',
+      taxRate: 14, taxLabel: 'VAT', vatId: '', fyStart: '01-01',
     },
     partners: [p1, p2, p3],
     products: [a, b, c],
@@ -301,6 +318,7 @@ function seed(): DB {
       { code: 'WELCOME10', kind: 'percent', value: 10, expires: '', limit: 0, used: 0 },
     ],
     modules: { enabled: [...DEFAULT_MODULES], requested: [] },
+    setup: { done: false, step: 0, dismissedChecklist: false },
     accounts: CHART,
     manualEntries: [],
   }
@@ -323,11 +341,17 @@ export function DEFAULT_CHANNELS(): Channel[] {
 
 /** Kind of each built-in payment provider (full catalogue lives in tender.ts). */
 const CHANNEL_KIND: Record<string, ChannelKind> = {
-  stripe: 'card', paypal: 'card', paystack: 'card', flutterwave: 'card', revolut: 'card',
-  sumup: 'card', skrill: 'card', mpesa: 'mobile', orange: 'mobile', myzaka: 'mobile',
-  smega: 'mobile', momo: 'mobile', airtel: 'mobile', ecocash: 'mobile', posomoney: 'mobile',
-  wise: 'bank', eft: 'bank', btc: 'crypto', eth: 'crypto', usdt: 'crypto',
-  lightning: 'crypto', cash: 'cash', voucher: 'voucher',
+  stripe: 'card', paypal: 'card', square: 'card', sumup: 'card', revolut: 'card',
+  wise: 'card', skrill: 'card', payoneer: 'card', mollie: 'card', paystack: 'card',
+  flutterwave: 'card', yoco: 'card', payfast: 'card', razorpay: 'card', mercadopago: 'card',
+  cashapp: 'card', venmo: 'card', alipay: 'card', wechat: 'card',
+  ozow: 'bank', upi: 'bank', pix: 'bank', promptpay: 'bank', interac: 'bank',
+  zelle: 'bank', sepa: 'bank', eft: 'bank',
+  mpesa: 'mobile', orange: 'mobile', myzaka: 'mobile', smega: 'mobile', momo: 'mobile',
+  airtel: 'mobile', ecocash: 'mobile', wave: 'mobile', telebirr: 'mobile', bkash: 'mobile',
+  gcash: 'mobile', ovo: 'mobile', truemoney: 'mobile', posomoney: 'mobile',
+  btc: 'crypto', lightning: 'crypto', eth: 'crypto', usdt: 'crypto', usdc: 'crypto', sol: 'crypto',
+  cash: 'cash', cod: 'cash', voucher: 'voucher', giftcard: 'voucher',
 }
 
 /** Default chart of accounts — small but a genuine double-entry structure. */
@@ -416,7 +440,7 @@ export function migrate(raw: Partial<DB> | null): DB {
   const accounts = [...stored, ...CHART.filter(c => !stored.some(a => a.code === c.code))]
 
   return {
-    version: 4,
+    version: 5,
     company: { ...base.company, ...(raw.company || {}) },
     partners: raw.partners ?? [],
     products: raw.products ?? [],
@@ -433,6 +457,8 @@ export function migrate(raw: Partial<DB> | null): DB {
       enabled: raw.modules?.enabled ?? [...DEFAULT_MODULES],
       requested: raw.modules?.requested ?? [],
     },
+    // v4 -> v5: an existing workspace has clearly already been set up.
+    setup: raw.setup ?? { done: !!raw.invoices?.length, step: 0, dismissedChecklist: false },
     accounts,
     manualEntries: raw.manualEntries ?? [],
   }

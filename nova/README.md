@@ -3,7 +3,7 @@
 An offline-first, zero-server ERP that runs entirely in the browser and deploys for free
 to GitHub Pages, Cloudflare Pages or Vercel.
 
-![tests](https://img.shields.io/badge/tests-81%20passing-35d39a) ![deps](https://img.shields.io/badge/runtime%20deps-4-5b8cff) ![cost](https://img.shields.io/badge/hosting%20cost-%240-9b5bff)
+![tests](https://img.shields.io/badge/tests-105%20passing-35d39a) ![deps](https://img.shields.io/badge/runtime%20deps-4-5b8cff) ![cost](https://img.shields.io/badge/hosting%20cost-%240-9b5bff)
 
 ## Modules
 
@@ -13,7 +13,8 @@ to GitHub Pages, Cloudflare Pages or Vercel.
 | **CRM** | Contacts (customer/supplier/both), 5-stage pipeline with per-stage totals, search, full CRUD |
 | **Sales & invoicing** | Quotations → pro-forma → tax invoices → delivery notes, one-click quote conversion, coupon redemption, per-line tax, derived settlement status (draft/open/partial/paid/overdue), balance due, print/PDF and native share to WhatsApp, email or anything else on the device |
 | **Purchasing** | Vendor bills with per-line account coding, part-payment tracking, plus expenses with company-paid vs reimbursable employee spend |
-| **Payment channels** | Cards & wallets (Stripe links, PayPal.Me, Paystack, Flutterwave, Revolut, SumUp, Skrill), mobile money (M-Pesa, Orange Money, MyZaka, Smega, MTN MoMo, Airtel, EcoCash, Poso), crypto (Bitcoin, Lightning, Ethereum, USDT), bank EFT, cash and coupon/voucher codes — each invoice gets a tap-to-pay link and a scannable QR |
+| **Payment channels** | 50-provider catalogue with search, country filter and "recommended for your market": cards & wallets (Stripe, PayPal, Square, SumUp, Revolut, Wise, Skrill, Payoneer, Mollie, Paystack, Flutterwave, Yoco, PayFast, Razorpay, Mercado Pago, Cash App, Venmo, Alipay, WeChat Pay), instant bank rails (UPI, Pix, PromptPay, Interac, Zelle, SEPA, Ozow, EFT), mobile money (M-Pesa, Orange, MyZaka, Smega, MoMo, Airtel, EcoCash, Wave, telebirr, bKash, GCash, OVO, TrueMoney, Poso), crypto (BTC, Lightning, ETH, USDT, USDC, SOL), cash/COD and vouchers. Account validation, stated fees and settlement times, ordering, and a live customer preview |
+| **Onboarding** | Five-step first-run wizard (business profile with country-aware currency/tax defaults, what you do and how big you are, payment rails, demo-vs-clean books) plus a data-derived getting-started checklist on the dashboard |
 | **Apps & modules** | In-app module marketplace: activate what you need, keep the rest on standby, or apply a one-click business profile from solo hacker to corporate enterprise |
 | **Banking** | Payment register for customer receipts and vendor payments (bank or cash), part-payments, payments on account, CSV bank-statement import, one-click matching with suggestions, and a reconciliation summary that proves the statement agrees with the books |
 | **Inventory** | Products with cost/price/margin, live on-hand computed from the move ledger, reorder points and alerts, manual in/out/adjust moves |
@@ -65,7 +66,7 @@ cd nova
 npm install
 npm run dev        # http://localhost:5173
 npm run typecheck  # strict TypeScript, no errors
-npm test           # 81 tests
+npm test           # 105 tests
 npm run build      # -> dist/
 ```
 
@@ -99,6 +100,7 @@ src/
   lib/tender.ts      payment-channel catalogue, payment links/QR, coupons
   lib/modules.ts     module registry, business-size profiles
   lib/share.ts       Web Share API, WhatsApp/email/SMS deep links
+  lib/onboarding.ts  checklist, country tax/currency defaults, business profiles
   lib/reports.ts     ageing, VAT return, analytics, CSV
   lib/backup.ts      automatic restore points, storage quota, diagnostics
   lib/ui.tsx         toasts, error boundary, hotkeys

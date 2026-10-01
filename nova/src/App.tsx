@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useDB } from './lib/db'
 import { navModules } from './lib/modules'
 import CommandPalette from './components/CommandPalette'
+import Onboarding from './components/Onboarding'
 
 export default function App() {
   const db = useDB()
@@ -47,6 +48,7 @@ export default function App() {
       </aside>
 
       <main className="main" key={loc.pathname}><Outlet /></main>
+      {!db.setup.done && <Onboarding />}
       <CommandPalette />
     </div>
   )

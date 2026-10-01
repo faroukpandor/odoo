@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useDB, update, exportJSON, importJSON, resetDB } from '../lib/db'
 import { useToast } from '../lib/ui'
+import { COUNTRIES } from '../lib/tender'
+import { applyCountry, progress } from '../lib/onboarding'
 import {
   listSnapshots, takeSnapshot, restoreSnapshot, deleteSnapshot,
   storageEstimate, requestPersistence, readErrorLog, clearErrorLog, Snapshot,
@@ -40,12 +42,44 @@ export default function Settings() {
         <h2>Company</h2>
         <div className="form">
           <label>Company name<input value={db.company.name} onChange={e => set({ name: e.target.value })} /></label>
+          <label>Country
+            <select value={db.company.country}
+              onChange={e => update(d => { d.company = applyCountry(d.company, e.target.value) })}>
+              {COUNTRIES.map(c => <option key={c.code} value={c.code}>{c.name}</option>)}
+            </select>
+          </label>
           <label>Billing email<input value={db.company.email} onChange={e => set({ email: e.target.value })} /></label>
+          <label>Phone<input value={db.company.phone} onChange={e => set({ phone: e.target.value })} /></label>
           <label>Currency<input value={db.company.currency} onChange={e => set({ currency: e.target.value.toUpperCase() })} /></label>
+          <label>Tax name
+            <select value={db.company.taxLabel} onChange={e => set({ taxLabel: e.target.value })}>
+              {['VAT', 'GST', 'Sales tax', 'IVA', 'PPN', 'ICMS'].map(x => <option key={x}>{x}</option>)}
+            </select>
+          </label>
           <label>Default tax %<input type="number" step="0.01" value={db.company.taxRate}
             onChange={e => set({ taxRate: parseFloat(e.target.value) || 0 })} /></label>
-          <label>VAT / Tax ID<input value={db.company.vatId} onChange={e => set({ vatId: e.target.value })} /></label>
-          <label>Address<input value={db.company.address} onChange={e => set({ address: e.target.value })} /></label>
+          <label>{db.company.taxLabel || 'Tax'} registration number
+            <input value={db.company.vatId} onChange={e => set({ vatId: e.target.value })} /></label>
+          <label>Financial year starts
+            <input value={db.company.fyStart} placeholder="01-01"
+              onChange={e => set({ fyStart: e.target.value })} /></label>
+          <label className="wide">Address<input value={db.company.address} onChange={e => set({ address: e.target.value })} /></label>
+        </div>
+      </section>
+
+      <section className="card">
+        <h2>Setup</h2>
+        <p className="muted">
+          Getting started is {progress(db).pct}% complete ({progress(db).done} of {progress(db).total} tasks).
+        </p>
+        <div className="form-actions" style={{ justifyContent: 'flex-start' }}>
+          <button className="btn" onClick={() => {
+            update(d => { d.setup = { done: false, step: 0, dismissedChecklist: false } })
+            toast('Setup wizard reopened')
+          }}>Run setup wizard again</button>
+          <button className="btn" onClick={() => {
+            update(d => { d.setup.dismissedChecklist = !d.setup.dismissedChecklist })
+          }}>{db.setup.dismissedChecklist ? 'Show' : 'Hide'} getting-started checklist</button>
         </div>
       </section>
 

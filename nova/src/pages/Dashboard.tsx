@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import Checklist from '../components/Checklist'
 import { useDB, invoiceTotals, billTotals, expenseTotals, money, isOverdue, stockOf, balanceDue } from '../lib/db'
 import { profitAndLoss, trialBalance } from '../lib/accounting'
 import { totalReceivable, totalPayable, cashFlow, reconciliation } from '../lib/payments'
@@ -45,6 +46,8 @@ export default function Dashboard() {
           <p className="sub">Live picture of your business — computed on device.</p>
         </div>
       </header>
+
+      <Checklist />
 
       <div className="kpis">
         <Kpi label="Cash position" value={money(cashPos)} tone={cashPos >= 0 ? 'brand' : 'bad'} />

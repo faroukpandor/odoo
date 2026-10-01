@@ -15,6 +15,7 @@ import Accounting from './Accounting'
 import Reports from './Reports'
 import Settings from './Settings'
 import { ErrorBoundary, ToastHost } from '../lib/ui'
+import { resetDB, update } from '../lib/db'
 
 /**
  * Smoke test: every route must render without throwing, using the seeded
@@ -57,6 +58,20 @@ describe('page smoke tests', () => {
       expect(html).toContain(heading)
       expect(html).not.toContain('Something went wrong')
     })
+  })
+
+  it('shows the first-run wizard until setup is finished', () => {
+    resetDB()
+    update(d => { d.setup = { done: false, step: 0, dismissedChecklist: false } })
+    expect(render('/', <Dashboard />)).toContain('Set up in under two minutes')
+  })
+
+  it('hides the wizard and shows the checklist once setup is done', () => {
+    resetDB()
+    update(d => { d.setup = { done: true, step: 0, dismissedChecklist: false } })
+    const html = render('/', <Dashboard />)
+    expect(html).not.toContain('Set up in under two minutes')
+    expect(html).toContain('Get set up')
   })
 
   it('renders the shared navigation shell on every page', () => {
