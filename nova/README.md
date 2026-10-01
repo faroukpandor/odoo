@@ -3,7 +3,7 @@
 An offline-first, zero-server ERP that runs entirely in the browser and deploys for free
 to GitHub Pages, Cloudflare Pages or Vercel.
 
-![tests](https://img.shields.io/badge/tests-201%20passing-35d39a) ![deps](https://img.shields.io/badge/runtime%20deps-4-5b8cff) ![cost](https://img.shields.io/badge/hosting%20cost-%240-9b5bff)
+![tests](https://img.shields.io/badge/tests-236%20passing-35d39a) ![deps](https://img.shields.io/badge/runtime%20deps-4-5b8cff) ![cost](https://img.shields.io/badge/hosting%20cost-%240-9b5bff)
 
 ## Modules
 
@@ -22,6 +22,7 @@ to GitHub Pages, Cloudflare Pages or Vercel.
 | **Accounting** | True double-entry ledger auto-derived from documents: journal, trial balance, profit & loss, balance sheet, date cut-off, printable, plus manual adjusting entries that must balance before posting |
 | **Recurring billing** | Retainers and subscriptions that issue their own invoices — weekly to yearly, end dates, pause/skip, MRR and annualised revenue. Missed runs are caught up the next time the app opens, so nothing depends on a server being awake |
 | **Reports** | AR/AP ageing by bucket, VAT return, revenue concentration with risk warning, cash summary, per-customer statement of account (opening balance → movement → closing, with ageing) that prints or shares, CSV export of ageing, VAT and the full journal |
+| **Brand studio** | A whole stationery house, generated offline from one brand kit (mark, palette, type pairing, pattern, tagline): **business cards** front and back at 85 × 55 mm with a 10-up A4 imposition sheet and crop marks, **A4 letterhead**, **DL compliment slip**, **DL envelope**, **staff badge**, **circular rubber stamp**, **invoice/quote theme**, **proposal cover**, **social avatar and banner**, and a pasteable **HTML email signature** with the mark embedded. Every piece is true-to-size SVG, downloadable as SVG or 300 dpi PNG, printable, and colour-safe: gradients are deepened automatically until white type passes WCAG AA, and marks are knocked out in white on coloured headers. Apply the kit and your real invoices, quotes and statements restyle to match |
 | **Logo studio** | No logo? Nova draws one: six deterministic SVG marks (monogram, badge, wordmark, shield, orbit, stack) built from your business name on the device, recolourable, yours to keep with no licence or watermark — or upload your own file, during onboarding or any time later in Settings |
 | **Workspace health** | On-demand integrity check doing the job a database's constraints would: dangling references, duplicate document numbers, over-allocated payments, negative invoices, postings to unknown accounts, a journal that must balance, and no-owner lockout — with a one-click repair for the findings that have an unambiguous fix |
 | **Settings** | Company profile, registration numbers and logo (printed on quotes, invoices, delivery notes and statements), JSON export/import, automatic restore points, storage quota meter, persistent-storage request, crash diagnostics |
@@ -70,7 +71,7 @@ cd nova
 npm install
 npm run dev        # http://localhost:5173
 npm run typecheck  # strict TypeScript, no errors
-npm test           # 201 tests
+npm test           # 236 tests
 npm run build      # -> dist/
 ```
 
@@ -120,6 +121,8 @@ src/
   lib/onboarding.ts  checklist, country tax/currency defaults, business profiles
   lib/team.ts        users, roles, permissions, attribution
   lib/logo.ts        generated SVG logo marks, palettes, data URLs
+  lib/brand.ts       brand kit: palettes, type pairings, contrast maths
+  lib/stationery.ts  cards, letterhead, envelopes, badges, stamps, exports
   lib/health.ts      integrity checks and safe repairs
   lib/theme.ts       dark/light/system appearance
   lib/recurring.ts   recurring schedules, catch-up billing run, MRR

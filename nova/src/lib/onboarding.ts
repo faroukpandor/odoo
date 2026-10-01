@@ -54,6 +54,11 @@ export function checklist(d: DB): Task[] {
       done: hasSalesDoc,
     },
     {
+      id: 'brand', label: 'Make your stationery', to: '/brand', essential: false,
+      detail: 'Business cards, letterhead and a matching invoice theme in one click.',
+      done: !!d.company.brand,
+    },
+    {
       id: 'payment', label: 'Record a payment', to: '/banking', essential: false,
       detail: 'Settles the invoice and posts the cash side of the ledger.',
       done: d.payments.length > 0,

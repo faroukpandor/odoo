@@ -11,6 +11,7 @@ import Banking from './pages/Banking'
 import Apps from './pages/Apps'
 import Channels from './pages/Channels'
 import Recurring from './pages/Recurring'
+import Brand from './pages/Brand'
 import Accounting from './pages/Accounting'
 import Reports from './pages/Reports'
 import Settings from './pages/Settings'
@@ -38,6 +39,7 @@ function start() {
             <Route path="apps" element={<Apps />} />
             <Route path="channels" element={<Channels />} />
             <Route path="recurring" element={<Recurring />} />
+            <Route path="brand" element={<Brand />} />
             <Route path="inventory" element={<Inventory />} />
             <Route path="accounting" element={<Accounting />} />
             <Route path="reports" element={<Reports />} />

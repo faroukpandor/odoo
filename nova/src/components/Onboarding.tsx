@@ -169,6 +169,10 @@ export default function Onboarding() {
 
               <LogoPicker name={company.name} value={company.logo}
                 onChange={logo => setCompany(c => ({ ...c, logo }))} />
+              <p className="muted small">
+                Once you are in, Brand studio turns this mark into business cards, a
+                letterhead, envelopes, a stamp and social art — all printable, all free.
+              </p>
 
               {(isOrg || more) ? (
                 <div className="form">

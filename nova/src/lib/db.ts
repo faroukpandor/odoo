@@ -228,6 +228,23 @@ export interface Company {
   regNo?: string
   /** Legal/trading entity note shown on documents, e.g. 'A division of …'. */
   legalName?: string
+  /**
+   * Brand kit driving the logo, stationery and document styling.
+   * Shaped in lib/brand.ts; kept as a structural type here so db.ts stays
+   * free of imports from the modules that depend on it.
+   */
+  brand?: {
+    logo: string
+    logoStyle: string
+    paletteId: string
+    primary: string
+    accent: string
+    ink: string
+    paper: string
+    fontId: string
+    pattern: string
+    tagline: string
+  }
 }
 
 /** What a teammate is allowed to do. Checked in lib/team.ts. */
@@ -272,6 +289,9 @@ export interface DB {
   accounts: Account[]
   manualEntries: JournalEntry[]
 }
+
+/** Current schema version. Bump it in one place; migrate() lifts old files. */
+export const SCHEMA_VERSION = 8
 
 const KEY = 'nova-erp-db-v1'
 
@@ -347,7 +367,7 @@ function seed(): DB {
   pay.statementLineId = stmt[0].id
 
   return {
-    version: 7,
+    version: SCHEMA_VERSION,
     company: {
       name: 'My Company', email: 'billing@mycompany.com', phone: '',
       address: 'Gaborone, Botswana', country: 'BW', currency: 'BWP',
@@ -496,7 +516,7 @@ export function migrate(raw: Partial<DB> | null): DB {
   const accounts = [...stored, ...CHART.filter(c => !stored.some(a => a.code === c.code))]
 
   return {
-    version: 7,
+    version: SCHEMA_VERSION,
     company: { ...base.company, ...(raw.company || {}) },
     partners: raw.partners ?? [],
     products: raw.products ?? [],

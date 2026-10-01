@@ -11,6 +11,7 @@ import Banking from './pages/Banking'
 import Inventory from './pages/Inventory'
 import Channels from './pages/Channels'
 import Recurring from './pages/Recurring'
+import Brand from './pages/Brand'
 import Apps from './pages/Apps'
 import Accounting from './pages/Accounting'
 import Reports from './pages/Reports'
@@ -45,6 +46,7 @@ function mount(hash: string) {
                   <Route path="inventory" element={<Inventory />} />
                   <Route path="channels" element={<Channels />} />
                   <Route path="recurring" element={<Recurring />} />
+                  <Route path="brand" element={<Brand />} />
                   <Route path="apps" element={<Apps />} />
                   <Route path="accounting" element={<Accounting />} />
                   <Route path="reports" element={<Reports />} />
@@ -62,7 +64,7 @@ function mount(hash: string) {
 }
 
 const ROUTES = ['#/', '#/crm', '#/invoices', '#/purchases', '#/banking', '#/inventory',
-  '#/channels', '#/recurring', '#/apps', '#/accounting', '#/reports', '#/settings']
+  '#/channels', '#/recurring', '#/brand', '#/apps', '#/accounting', '#/reports', '#/settings']
 
 // React needs this flag to run effects synchronously inside act().
 ;(globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true
@@ -303,5 +305,61 @@ describe('appearance and small screens', () => {
     const tabs = host.querySelectorAll('.tabbar-link')
     expect(tabs.length).toBe(5)
     expect(tabs[0].getAttribute('href')).toBe('#/')
+  })
+})
+
+describe('brand studio', () => {
+  beforeEach(() => {
+    resetDB()
+    update(d => {
+      d.setup = { done: true, step: 0, dismissedChecklist: false }
+      d.company.name = 'Kalahari Trading'
+    })
+  })
+
+  it('renders a full set of stationery previews', () => {
+    const { host } = mount('#/brand')
+    clickText(host, 'Print stationery')
+    const svgs = host.querySelectorAll('.piece-canvas svg')
+    expect(svgs.length).toBeGreaterThanOrEqual(6)
+    expect(host.innerHTML).toContain('85 × 55 mm')
+    expect(host.innerHTML).toContain('Business card')
+    expect(host.innerHTML).toContain('Letterhead')
+    expect(host.innerHTML).toContain('Rubber stamp')
+  })
+
+  it('applies the brand to the real documents, not just the previews', () => {
+    const { host } = mount('#/brand')
+    expect(getDB().company.brand).toBeUndefined()
+    clickText(host, 'Apply to my documents')
+    const brand = getDB().company.brand
+    expect(brand).toBeDefined()
+    expect(getDB().company.logo).toBe(brand!.logo)
+    expect(brand!.primary.startsWith('#')).toBe(true)
+  })
+
+  it('restyles every piece when a different palette is chosen', () => {
+    const { host } = mount('#/brand')
+    const before = host.querySelector('.logo-option img')!.getAttribute('src')
+    const swatches = host.querySelectorAll('.swatch')
+    act(() => { (swatches[4] as HTMLElement).click() })
+    expect(host.querySelector('.logo-option img')!.getAttribute('src')).not.toBe(before)
+  })
+
+  it('offers a pasteable email signature with the mark embedded', () => {
+    const { host } = mount('#/brand')
+    clickText(host, 'Email signature')
+    const sig = host.querySelector('.sig-preview')!.innerHTML
+    expect(sig).toContain('Kalahari Trading')
+    expect(sig).toContain('data:image/svg+xml')
+  })
+
+  it('shows the document theme so invoices and stationery cannot drift apart', () => {
+    const { host } = mount('#/brand')
+    const tab = Array.from(host.querySelectorAll('.tab'))
+      .find(t => t.textContent === 'Documents') as HTMLElement
+    act(() => tab.click())
+    expect(host.innerHTML).toContain('Invoice theme')
+    expect(host.innerHTML).toContain('Proposal cover')
   })
 })

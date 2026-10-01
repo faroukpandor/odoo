@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { resetDB, update, getDB, uid, migrate, type User } from './db'
+import { resetDB, update, getDB, uid, migrate, SCHEMA_VERSION, type User } from './db'
 import {
   ROLES, can, canSee, currentUser, isReadOnly, newUser, addUser, removeUser,
   canRemove, switchUser, initials, activityByUser, userName,
@@ -131,7 +131,7 @@ describe('upgrading a single-user file', () => {
   it('turns the implicit owner into a real user record', () => {
     const old = JSON.parse(JSON.stringify({ ...getDB(), version: 6, users: undefined, currentUserId: undefined }))
     const d = migrate(old)
-    expect(d.version).toBe(7)
+    expect(d.version).toBe(SCHEMA_VERSION)
     expect(d.users).toHaveLength(1)
     expect(d.users[0].role).toBe('owner')
     expect(currentUser(d).id).toBe(d.currentUserId)

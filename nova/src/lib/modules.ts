@@ -46,6 +46,7 @@ export const MODULES: ModuleSpec[] = [
   // Optional, shipping today.
   { id: 'inventory', name: 'Inventory', icon: '▦', to: '/inventory', group: 'Operations', tier: 'micro', status: 'live', blurb: 'Products, live stock from the move ledger, reorder alerts.' },
   { id: 'payments', name: 'Payment channels', icon: '⇄', to: '/channels', group: 'Finance', tier: 'micro', status: 'live', blurb: 'Cards, mobile money, crypto, EFT, vouchers — QR and links.' },
+  { id: 'brand', name: 'Brand studio', icon: '✦', to: '/brand', group: 'Growth', tier: 'hacker', status: 'live', blurb: 'Logo, business cards, letterhead, stamps and social art — generated offline.' },
   { id: 'apps', name: 'Apps & modules', icon: '⊞', to: '/apps', group: 'Platform', tier: 'hacker', core: true, status: 'live', blurb: 'Turn modules on and off, pick a business profile.' },
 
   // Premium capability, on standby until requested.
@@ -72,7 +73,7 @@ export const byId = (id: string) => MODULES.find(m => m.id === id)
 export const CORE_IDS = MODULES.filter(m => m.core).map(m => m.id)
 
 /** What a fresh workspace switches on. */
-export const DEFAULT_MODULES = [...CORE_IDS, 'inventory', 'payments', 'subscriptions']
+export const DEFAULT_MODULES = [...CORE_IDS, 'inventory', 'payments', 'subscriptions', 'brand']
 
 const TIER_ORDER: Tier[] = ['hacker', 'micro', 'small', 'medium', 'large', 'enterprise']
 

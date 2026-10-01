@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { resetDB, update, getDB, uid, migrate, type Channel } from './db'
+import { defaultBrand } from './brand'
 import {
   checklist, progress, applyCountry, COUNTRY_DEFAULTS, BUSINESS_KINDS, guessCountry,
 } from './onboarding'
@@ -145,6 +146,7 @@ describe('getting-started checklist', () => {
   it('marks every task done for a fully set-up workspace', () => {
     update(d => {
       d.company.name = 'Kalahari Trading'
+      d.company.brand = defaultBrand(d.company)
       d.channels = [chan()]
       d.setup = { done: true, step: 0, dismissedChecklist: true }
     })

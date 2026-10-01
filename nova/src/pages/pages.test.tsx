@@ -11,6 +11,7 @@ import Banking from './Banking'
 import Apps from './Apps'
 import Channels from './Channels'
 import Recurring from './Recurring'
+import Brand from './Brand'
 import Inventory from './Inventory'
 import Accounting from './Accounting'
 import Reports from './Reports'
@@ -33,6 +34,7 @@ const routes: [string, string, React.ReactNode][] = [
   ['/apps', 'Activate only what you need', <Apps key="ap" />],
   ['/channels', 'Payment channels', <Channels key="ch" />],
   ['/recurring', 'Recurring billing', <Recurring key="rc" />],
+  ['/brand', 'Brand studio', <Brand key="br" />],
   ['/accounting', 'Accounting', <Accounting key="a" />],
   ['/reports', 'Reports', <Reports key="r" />],
   ['/settings', 'Settings', <Settings key="s" />],

@@ -11,7 +11,7 @@ import {
 import { vatReturn, topCustomers } from './reports'
 import { runSchedules, addPeriod, isDue, mrr, scheduleTotal, dueSchedules } from './recurring'
 import { statement, statementPartners } from './statement'
-import { migrate } from './db'
+import { migrate, SCHEMA_VERSION } from './db'
 
 const acc = (code: string) => trialBalance(getDB()).find(b => b.account.code === code)!
 
@@ -277,7 +277,7 @@ describe('upgrading an older file', () => {
 
   it('lifts a v5 file to the current version without losing anything', () => {
     const d = migrate(v5())
-    expect(d.version).toBe(7)
+    expect(d.version).toBe(SCHEMA_VERSION)
     expect(d.company.name).toBe('Old Co')
     expect(d.invoices).toHaveLength(2)
     expect(d.partners).toHaveLength(1)
@@ -298,7 +298,7 @@ describe('upgrading an older file', () => {
 
   it('still rebuilds a fresh file from nothing', () => {
     const d = migrate(null)
-    expect(d.version).toBe(7)
+    expect(d.version).toBe(SCHEMA_VERSION)
     expect(d.recurring).toEqual([])
     expect(d.accounts.length).toBeGreaterThan(5)
   })

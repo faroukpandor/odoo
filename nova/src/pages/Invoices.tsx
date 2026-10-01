@@ -374,10 +374,13 @@ function Preview({ view, onClose }: { view: View; onClose: () => void }) {
   return (
     <Modal title={`${inv.number} · ${delivery ? 'Delivery note' : docTitle[inv.kind]}`} onClose={onClose}>
       <div className="print-area">
-        <div className="doc-head">
+        <div className="doc-head" style={db.company.brand
+          ? { borderTop: `4px solid ${db.company.brand.primary}`, paddingTop: 12 } : undefined}>
           <div>
             {db.company.logo && <img className="doc-logo" src={db.company.logo} alt="" />}
             <h2>{db.company.name}</h2>
+            {db.company.brand?.tagline &&
+              <div className="small" style={{ color: db.company.brand.primary }}>{db.company.brand.tagline}</div>}
             <div className="muted small">{db.company.address}<br />{db.company.email}
               {db.company.legalName && <><br />{db.company.legalName}</>}
               {db.company.vatId && <><br />{db.company.taxLabel || 'VAT'} {db.company.vatId}</>}
