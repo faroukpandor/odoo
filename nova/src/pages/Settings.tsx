@@ -4,6 +4,11 @@ import { useToast } from '../lib/ui'
 import { COUNTRIES } from '../lib/tender'
 import { applyCountry, progress } from '../lib/onboarding'
 import {
+  ROLES, currentUser, newUser, addUser, removeUser, canRemove, switchUser,
+  initials, roleLabel, activityByUser, can,
+} from '../lib/team'
+import { Role } from '../lib/db'
+import {
   listSnapshots, takeSnapshot, restoreSnapshot, deleteSnapshot,
   storageEstimate, requestPersistence, readErrorLog, clearErrorLog, Snapshot,
 } from '../lib/backup'
@@ -64,6 +69,10 @@ export default function Settings() {
           <label>Financial year starts
             <input value={db.company.fyStart} placeholder="01-01"
               onChange={e => set({ fyStart: e.target.value })} /></label>
+          <label>Company registration no.
+            <input value={db.company.regNo ?? ''} placeholder="BW00001234567"
+              onChange={e => set({ regNo: e.target.value })} />
+          </label>
           <label className="wide">Address<input value={db.company.address} onChange={e => set({ address: e.target.value })} /></label>
         </div>
         <div className="logo-row">
@@ -90,6 +99,8 @@ export default function Settings() {
           </div>
         </div>
       </section>
+
+      <Team />
 
       <section className="card">
         <h2>Setup</h2>
@@ -212,5 +223,101 @@ export default function Settings() {
         )}
       </section>
     </>
+  )
+}
+
+/**
+ * Team: who shares this workspace, what each of them may touch, and who did
+ * what. Everyone here works on the same books; every open window updates live.
+ */
+function Team() {
+  const db = useDB()
+  const toast = useToast()
+  const me = currentUser(db)
+  const [draft, setDraft] = useState<ReturnType<typeof newUser> | null>(null)
+  const activity = activityByUser(db)
+  const mayManage = can(db, 'team.manage')
+
+  return (
+    <section className="card">
+      <h2>Team</h2>
+      <p className="muted">
+        Several people can share these books. Each teammate gets a role that decides what
+        they can open and change, and every window on this device updates the moment
+        somebody saves. Roles organise work and prevent mistakes — they are not a security
+        boundary, because anyone with the device has the file.
+      </p>
+
+      <div className="scroll-x">
+        <table className="table compact">
+          <thead><tr>
+            <th>Name</th><th>Email</th><th>Role</th>
+            <th className="r">Documents</th><th className="r">Payments</th><th></th>
+          </tr></thead>
+          <tbody>
+            {db.users.map(u => {
+              const a = activity.find(x => x.user.id === u.id)!
+              return (
+                <tr key={u.id} className={u.active ? '' : 'muted'}>
+                  <td>
+                    <span className="user-row">
+                      <span className="avatar sm" aria-hidden>{initials(u.name)}</span>
+                      <b>{u.name}</b>
+                      {u.id === me.id && <span className="badge paid">you</span>}
+                    </span>
+                  </td>
+                  <td>{u.email || '—'}</td>
+                  <td>
+                    {mayManage ? (
+                      <select value={u.role} disabled={!canRemove(db, u.id) && u.role === 'owner'}
+                        onChange={e => update(d => {
+                          const x = d.users.find(y => y.id === u.id); if (x) x.role = e.target.value as Role
+                        })}>
+                        {ROLES.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
+                      </select>
+                    ) : roleLabel(u.role)}
+                  </td>
+                  <td className="r">{a.documents}</td>
+                  <td className="r">{a.payments}</td>
+                  <td className="r nowrap">
+                    {u.id !== me.id && u.active &&
+                      <button className="btn tiny" onClick={() => update(d => switchUser(d, u.id))}>Work as</button>}
+                    {mayManage && u.id !== me.id &&
+                      <button className="btn tiny danger" disabled={!canRemove(db, u.id)}
+                        onClick={() => { update(d => removeUser(d, u.id)); toast(`${u.name} removed`) }}>Remove</button>}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {mayManage && (draft ? (
+        <form className="form" onSubmit={e => {
+          e.preventDefault()
+          update(d => addUser(d, draft))
+          toast(`${draft.name || 'Teammate'} added as ${roleLabel(draft.role)}`)
+          setDraft(null)
+        }}>
+          <label>Name<input autoFocus required value={draft.name}
+            onChange={e => setDraft({ ...draft, name: e.target.value })} /></label>
+          <label>Email<input type="email" value={draft.email}
+            onChange={e => setDraft({ ...draft, email: e.target.value })} /></label>
+          <label>Role
+            <select value={draft.role} onChange={e => setDraft({ ...draft, role: e.target.value as Role })}>
+              {ROLES.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
+            </select>
+          </label>
+          <p className="muted small wide">{ROLES.find(r => r.id === draft.role)?.detail}</p>
+          <div className="form-actions wide">
+            <button type="button" className="btn" onClick={() => setDraft(null)}>Cancel</button>
+            <button className="btn primary">Add teammate</button>
+          </div>
+        </form>
+      ) : (
+        <button className="btn" onClick={() => setDraft(newUser())}>+ Add teammate</button>
+      ))}
+    </section>
   )
 }

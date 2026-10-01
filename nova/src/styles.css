@@ -324,3 +324,21 @@ button.badge { border: 0; cursor: pointer; font-family: inherit; }
 .logo-ph { width: 120px; height: 60px; border: 1px dashed var(--line); border-radius: 10px;
   display: grid; place-items: center; }
 @media print { .doc-logo { filter: none; } }
+
+/* ---------- who is working (multi-user) ---------- */
+.who { display: flex; align-items: center; gap: 8px; margin: 10px 12px 0; }
+.who select { flex: 1; min-width: 0; font-size: 12px; padding: 6px 8px; }
+.avatar { width: 26px; height: 26px; border-radius: 50%; flex: none;
+  display: grid; place-items: center; font-size: 11px; font-weight: 700;
+  background: var(--brand); color: #fff; }
+.avatar.sm { width: 22px; height: 22px; font-size: 10px; }
+.user-row { display: flex; align-items: center; gap: 10px; }
+.grow { flex: 1; }
+
+/* ---------- onboarding: team step ---------- */
+.team-list { list-style: none; padding: 0; margin: 0 0 14px; display: grid; gap: 8px; }
+.team-list li { display: flex; align-items: center; gap: 10px;
+  border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
+.team-list li .x { margin-left: auto; }
+.link-btn { background: none; border: none; color: var(--brand); padding: 6px 0; }
+.ticks.small li { font-size: 12.5px; }

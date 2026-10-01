@@ -3,7 +3,7 @@
 An offline-first, zero-server ERP that runs entirely in the browser and deploys for free
 to GitHub Pages, Cloudflare Pages or Vercel.
 
-![tests](https://img.shields.io/badge/tests-135%20passing-35d39a) ![deps](https://img.shields.io/badge/runtime%20deps-4-5b8cff) ![cost](https://img.shields.io/badge/hosting%20cost-%240-9b5bff)
+![tests](https://img.shields.io/badge/tests-160%20passing-35d39a) ![deps](https://img.shields.io/badge/runtime%20deps-4-5b8cff) ![cost](https://img.shields.io/badge/hosting%20cost-%240-9b5bff)
 
 ## Modules
 
@@ -14,14 +14,15 @@ to GitHub Pages, Cloudflare Pages or Vercel.
 | **Sales & invoicing** | Quotations → pro-forma → tax invoices → delivery notes, one-click quote conversion, coupon redemption, per-line tax, credit notes that reverse an invoice in the ledger and can be applied to another invoice or refunded in cash, derived settlement status (draft/open/partial/paid/overdue), balance due, print/PDF and native share to WhatsApp, email or anything else on the device |
 | **Purchasing** | Vendor bills with per-line account coding, part-payment tracking, plus expenses with company-paid vs reimbursable employee spend |
 | **Payment channels** | 50-provider catalogue with search, country filter and "recommended for your market": cards & wallets (Stripe, PayPal, Square, SumUp, Revolut, Wise, Skrill, Payoneer, Mollie, Paystack, Flutterwave, Yoco, PayFast, Razorpay, Mercado Pago, Cash App, Venmo, Alipay, WeChat Pay), instant bank rails (UPI, Pix, PromptPay, Interac, Zelle, SEPA, Ozow, EFT), mobile money (M-Pesa, Orange, MyZaka, Smega, MoMo, Airtel, EcoCash, Wave, telebirr, bKash, GCash, OVO, TrueMoney, Poso), crypto (BTC, Lightning, ETH, USDT, USDC, SOL), cash/COD and vouchers. Account validation, stated fees and settlement times, ordering, and a live customer preview |
-| **Onboarding** | Five-step first-run wizard (business profile with country-aware currency/tax defaults, what you do and how big you are, payment rails, demo-vs-clean books) plus a data-derived getting-started checklist on the dashboard |
+| **Onboarding** | Adaptive first-run wizard: it asks who you are first, then shows only what that size of business needs — a solo trader answers three questions, an enterprise is also asked for registered name, company and tax registration numbers, financial year, trading name, logo and team. Country-aware currency/tax defaults, recommended local payment rails, demo-vs-clean books, every step skippable, plus a data-derived getting-started checklist on the dashboard |
+| **Team & roles** | Several people share one workspace with their own identity: Owner, Administrator, Accountant, Sales, Viewer. Roles hide pages and disable actions (sales never sees the ledger or the bank; a viewer is read-only everywhere), work is attributed to whoever recorded it, and the last owner cannot be removed. Every open window on the device updates live over BroadcastChannel |
 | **Apps & modules** | In-app module marketplace: activate what you need, keep the rest on standby, or apply a one-click business profile from solo hacker to corporate enterprise |
 | **Banking** | Payment register for customer receipts and vendor payments (bank or cash), part-payments, payments on account, CSV bank-statement import, one-click matching with suggestions, and a reconciliation summary that proves the statement agrees with the books |
 | **Inventory** | Products with cost/price/margin, live on-hand computed from the move ledger, reorder points and alerts, manual in/out/adjust moves |
 | **Accounting** | True double-entry ledger auto-derived from documents: journal, trial balance, profit & loss, balance sheet, date cut-off, printable, plus manual adjusting entries that must balance before posting |
 | **Recurring billing** | Retainers and subscriptions that issue their own invoices — weekly to yearly, end dates, pause/skip, MRR and annualised revenue. Missed runs are caught up the next time the app opens, so nothing depends on a server being awake |
 | **Reports** | AR/AP ageing by bucket, VAT return, revenue concentration with risk warning, cash summary, per-customer statement of account (opening balance → movement → closing, with ageing) that prints or shares, CSV export of ageing, VAT and the full journal |
-| **Settings** | Company profile and logo (printed on quotes, invoices, delivery notes and statements), JSON export/import, automatic restore points, storage quota meter, persistent-storage request, crash diagnostics |
+| **Settings** | Company profile, registration numbers and logo (printed on quotes, invoices, delivery notes and statements), JSON export/import, automatic restore points, storage quota meter, persistent-storage request, crash diagnostics |
 
 Plus a **Ctrl/Cmd+K command palette** that searches every contact, invoice, bill and product,
 **toast notifications**, and an **error boundary** that keeps your data safe if anything throws.
@@ -67,7 +68,7 @@ cd nova
 npm install
 npm run dev        # http://localhost:5173
 npm run typecheck  # strict TypeScript, no errors
-npm test           # 135 tests
+npm test           # 160 tests
 npm run build      # -> dist/
 ```
 
@@ -102,6 +103,7 @@ src/
   lib/modules.ts     module registry, business-size profiles
   lib/share.ts       Web Share API, WhatsApp/email/SMS deep links
   lib/onboarding.ts  checklist, country tax/currency defaults, business profiles
+  lib/team.ts        users, roles, permissions, attribution
   lib/recurring.ts   recurring schedules, catch-up billing run, MRR
   lib/statement.ts   customer statement of account with running balance
   lib/reports.ts     ageing, VAT return, analytics, CSV
@@ -119,7 +121,25 @@ IndexedDB (the source of truth). `migrate()` upgrades any older snapshot or back
 
 - `accounting.test.ts` — 17 cases: every generated entry balances, draft documents never post, correct accounts are hit for invoices/bills/expenses/reimbursements, statements tie out, date cut-offs, manual adjustments, migration.
 - `reports.test.ts` — 9 cases: ageing buckets, exclusions, VAT netting, concentration, cash, CSV escaping.
-- `pages.test.tsx` — 9 cases: every route renders without throwing.
+- `payments.test.ts`, `gaps.test.ts`, `team.test.ts` — settlement, credit notes, refunds, recurring runs, statements, roles and migrations.
+- `pages.test.tsx` / `boot.test.tsx` — every route renders, and the real client boots into a DOM with zero console errors, including the adaptive wizard and role gating.
+
+## What multi-user does and does not mean here
+
+Nova has **no server**, so be precise about collaboration:
+
+- ✅ **Several people, one workspace, one device.** Real user records, five roles,
+  pages hidden and actions disabled by role, work attributed to whoever recorded it.
+- ✅ **Several windows at once, live.** Two tabs or two browser windows on the same
+  machine — a till and a back office, say — stay in sync instantly over
+  `BroadcastChannel`. No refresh, no conflicts, no server.
+- ❌ **Several devices at once.** Two laptops cannot edit the same books
+  simultaneously today. Moving a workspace between devices is an explicit
+  export/import, and roles are organisation, not security: anyone with the device
+  has the file.
+
+Simultaneous multi-device editing needs a sync service. That is a deliberate
+decision, not an oversight — see the roadmap.
 
 ## Roadmap
 
@@ -127,6 +147,8 @@ IndexedDB (the source of truth). `migrate()` upgrades any older snapshot or back
 2. ~~Purchasing, expenses and double-entry ledger~~ ✅
 3. ~~Reports: ageing, VAT, analytics, CSV~~ ✅
 4. ~~Restore points, error boundary, command palette, CI~~ ✅
-5. Bank reconciliation, recurring invoices, multi-currency
-6. Optional multi-device sync on a free tier (Cloudflare D1 / Supabase)
-7. Optional connector to the Odoo backend in this repository
+5. ~~Bank reconciliation, credit notes, recurring invoices, statements~~ ✅
+6. ~~Users, roles and live sync between windows on one device~~ ✅
+7. Multi-device collaboration on a free tier (Supabase / Cloudflare D1, or
+   peer-to-peer CRDT) — the only part that needs infrastructure
+8. Multi-currency, and an optional connector to the Odoo backend in this repository

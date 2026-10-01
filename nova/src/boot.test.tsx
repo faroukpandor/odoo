@@ -17,6 +17,7 @@ import Reports from './pages/Reports'
 import Settings from './pages/Settings'
 import { ErrorBoundary, ToastHost } from './lib/ui'
 import { resetDB, update, getDB } from './lib/db'
+import { newUser, addUser, switchUser } from './lib/team'
 
 /**
  * Real client boot: mounts the app into a DOM exactly as the browser does, so
@@ -111,5 +112,128 @@ describe('client boot', () => {
     })
     expect(() => mount('#/')).not.toThrow()
     if (orig) Object.defineProperty(window, 'localStorage', orig)
+  })
+})
+
+/** Clicks anything whose visible text matches, inside a mounted tree. */
+function clickText(host: HTMLElement, text: string) {
+  const el = Array.from(host.querySelectorAll('button, a'))
+    .find(n => (n.textContent ?? '').trim().toLowerCase().includes(text.toLowerCase()))
+  if (!el) throw new Error(`no clickable "${text}" found`)
+  act(() => { (el as HTMLElement).click() })
+  return el as HTMLElement
+}
+
+describe('onboarding adapts to who is signing up', () => {
+  beforeEach(() => {
+    resetDB()
+    update(d => { d.setup = { done: false, step: 0, dismissedChecklist: false } })
+  })
+
+  it('asks a solo trader for almost nothing', () => {
+    const { host } = mount('#/')
+    clickText(host, 'Continue')                       // welcome -> who you are
+    clickText(host, 'Hacker / solo')
+    clickText(host, 'Continue')                       // -> your business
+    const html = host.innerHTML
+    expect(html).toContain('Just the essentials')
+    expect(html).toContain('Business name')
+    expect(html).not.toContain('Company registration number')  // hidden until asked for
+    expect(html).toContain('Add contact details and tax number')
+    expect(html).toContain('Your logo')               // branding offered to everyone
+  })
+
+  it('reveals the extra fields when a solo trader asks for them', () => {
+    const { host } = mount('#/')
+    clickText(host, 'Continue')
+    clickText(host, 'Hacker / solo')
+    clickText(host, 'Continue')
+    clickText(host, 'Add contact details and tax number')
+    expect(host.innerHTML).toContain('Company registration number')
+  })
+
+  it('asks an enterprise for its legal identity and team up front', () => {
+    const { host } = mount('#/')
+    clickText(host, 'Continue')
+    clickText(host, 'Corporate / enterprise')
+    clickText(host, 'Continue')
+    const business = host.innerHTML
+    expect(business).toContain('Your organisation')
+    expect(business).toContain('Registered name')
+    expect(business).toContain('Company registration number')
+    expect(business).toContain('Financial year starts')
+    expect(business).toContain('Trading as')
+
+    clickText(host, 'Continue')                       // -> team step, enterprise only
+    expect(host.innerHTML).toContain('Who else works in here')
+    expect(host.innerHTML).toContain('Accountant / bookkeeper')
+  })
+
+  it('adds the named teammates to the workspace when setup finishes', () => {
+    const { host } = mount('#/')
+    clickText(host, 'Continue')
+    clickText(host, 'Corporate / enterprise')
+    clickText(host, 'Continue')
+    clickText(host, 'Continue')
+    const nameInput = host.querySelector('#tm-name') as HTMLInputElement
+    act(() => {
+      nameInput.value = 'Neo Dintwe'
+      nameInput.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    clickText(host, '+ Add teammate')
+    clickText(host, 'Continue')                       // -> getting paid
+    clickText(host, 'Continue')                       // -> your data
+    clickText(host, 'Start with empty books')
+    const users = getDB().users
+    expect(users.length).toBe(2)
+    expect(users.some(u => u.name === 'Neo Dintwe' && u.role === 'sales')).toBe(true)
+    expect(getDB().setup.done).toBe(true)
+  })
+})
+
+describe('several people sharing one workspace', () => {
+  beforeEach(() => {
+    resetDB()
+    update(d => { d.setup = { done: true, step: 0, dismissedChecklist: false } })
+  })
+
+  it('shows a switcher once there is more than one teammate', () => {
+    expect(mount('#/').html).not.toContain('Signed in as')
+    const u = { ...newUser('sales'), name: 'Neo Dintwe' }
+    update(d => addUser(d, u))
+    expect(mount('#/').html).toContain('Signed in as')
+  })
+
+  it('hides the ledger and the bank from a sales user', () => {
+    const u = { ...newUser('sales'), name: 'Neo Dintwe' }
+    update(d => { addUser(d, u); switchUser(d, u.id) })
+    const { host } = mount('#/')
+    const links = Array.from(host.querySelectorAll('.navlink')).map(n => n.getAttribute('href'))
+    expect(links).toContain('#/invoices')
+    expect(links).not.toContain('#/accounting')
+    expect(links).not.toContain('#/banking')
+  })
+
+  it('stops a viewer from raising documents and says why', () => {
+    const u = { ...newUser('viewer'), name: 'Auditor' }
+    update(d => { addUser(d, u); switchUser(d, u.id) })
+    expect(mount('#/').html).toContain('Read-only')
+    const { host } = mount('#/invoices')
+    const create = Array.from(host.querySelectorAll('button'))
+      .filter(b => (b.textContent ?? '').includes('+ Invoice'))
+    expect(create.length).toBeGreaterThan(0)
+    expect(create.every(b => (b as HTMLButtonElement).disabled)).toBe(true)
+  })
+
+  it('repaints an open window when another window saves', () => {
+    const { host } = mount('#/crm')
+    expect(host.innerHTML).not.toContain('Second Window Customer')
+    act(() => {
+      update(d => d.partners.unshift({
+        id: 'p-sync', name: 'Second Window Customer', email: '', phone: '',
+        kind: 'customer', stage: 'won', value: 0, note: '', createdAt: '2026-01-01',
+      }))
+    })
+    expect(host.innerHTML).toContain('Second Window Customer')
   })
 })

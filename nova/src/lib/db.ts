@@ -42,6 +42,8 @@ export interface InvoiceLine {
 }
 
 export interface Invoice {
+  /** Teammate who raised it, for multi-user attribution. */
+  createdBy?: ID
   id: ID
   /** Sales documents share one shape: a quote becomes an invoice in one click. */
   kind: 'quote' | 'proforma' | 'invoice' | 'credit'
@@ -105,6 +107,7 @@ export interface Expense {
 }
 
 export interface Payment {
+  createdBy?: ID
   id: ID
   date: string
   /** `in` = money received from a customer, `out` = money paid to a vendor. */
@@ -221,6 +224,22 @@ export interface Company {
   fyStart: string
   /** Data-URL logo printed on documents. Kept small on purpose. */
   logo?: string
+  /** Company/registration number, printed next to the tax number. */
+  regNo?: string
+  /** Legal/trading entity note shown on documents, e.g. 'A division of …'. */
+  legalName?: string
+}
+
+/** What a teammate is allowed to do. Checked in lib/team.ts. */
+export type Role = 'owner' | 'admin' | 'accountant' | 'sales' | 'viewer'
+
+export interface User {
+  id: ID
+  name: string
+  email: string
+  role: Role
+  active: boolean
+  createdAt: string
 }
 
 /** First-run wizard state and the getting-started checklist. */
@@ -245,6 +264,9 @@ export interface DB {
   channels: Channel[]
   coupons: Coupon[]
   recurring: Recurring[]
+  users: User[]
+  /** Which teammate this device is currently acting as. */
+  currentUserId: ID
   modules: ModuleState
   setup: Setup
   accounts: Account[]
@@ -284,6 +306,10 @@ function seed(): DB {
   const b: Product = { id: uid(), sku: 'HW-POS1', name: 'POS terminal', price: 6200, cost: 4100, qty: 12, reorderPoint: 5, uom: 'unit' }
   const c: Product = { id: uid(), sku: 'HW-SCAN', name: 'Barcode scanner', price: 890, cost: 520, qty: 3, reorderPoint: 8, uom: 'unit' }
 
+  const owner: User = {
+    id: uid(), name: 'Owner', email: '', role: 'owner', active: true, createdAt: today(),
+  }
+
   const inv: Invoice = {
     id: uid(), kind: 'invoice', number: 'INV-0001', partnerId: p1.id, date: today(),
     dueDate: addDays(today(), 30), status: 'sent', currency: 'BWP', note: '',
@@ -321,11 +347,12 @@ function seed(): DB {
   pay.statementLineId = stmt[0].id
 
   return {
-    version: 6,
+    version: 7,
     company: {
       name: 'My Company', email: 'billing@mycompany.com', phone: '',
       address: 'Gaborone, Botswana', country: 'BW', currency: 'BWP',
       taxRate: 14, taxLabel: 'VAT', vatId: '', fyStart: '01-01', logo: '',
+      regNo: '', legalName: '',
     },
     partners: [p1, p2, p3],
     products: [a, b, c],
@@ -344,6 +371,8 @@ function seed(): DB {
       { code: 'WELCOME10', kind: 'percent', value: 10, expires: '', limit: 0, used: 0 },
     ],
     recurring: [],
+    users: [owner],
+    currentUserId: owner.id,
     modules: { enabled: [...DEFAULT_MODULES], requested: [] },
     setup: { done: false, step: 0, dismissedChecklist: false },
     accounts: CHART,
@@ -467,7 +496,7 @@ export function migrate(raw: Partial<DB> | null): DB {
   const accounts = [...stored, ...CHART.filter(c => !stored.some(a => a.code === c.code))]
 
   return {
-    version: 6,
+    version: 7,
     company: { ...base.company, ...(raw.company || {}) },
     partners: raw.partners ?? [],
     products: raw.products ?? [],
@@ -481,6 +510,12 @@ export function migrate(raw: Partial<DB> | null): DB {
     channels: raw.channels ?? DEFAULT_CHANNELS(),
     coupons: raw.coupons ?? [],
     recurring: raw.recurring ?? [],
+    // v6 -> v7: a single implicit owner becomes a real user record, so work can
+    // be attributed and roles can gate what each teammate sees.
+    users: raw.users?.length ? raw.users : base.users,
+    currentUserId: raw.currentUserId && raw.users?.some(u => u.id === raw.currentUserId)
+      ? raw.currentUserId
+      : (raw.users?.[0]?.id ?? base.currentUserId),
     modules: {
       enabled: raw.modules?.enabled ?? [...DEFAULT_MODULES],
       requested: raw.modules?.requested ?? [],
@@ -515,11 +550,30 @@ export async function initDB(): Promise<void> {
   } catch { /* stay on the localStorage snapshot */ }
 }
 
-function commit(next: DB) {
+/**
+ * Live sync between windows on this device. Two people on one machine — or one
+ * person with the books open in two tabs — see each other's work immediately,
+ * with no server involved. Cross-device sync is a separate, deliberate step.
+ */
+const SYNC = 'nova-erp-sync'
+let bus: BroadcastChannel | null = null
+try {
+  bus = typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel(SYNC)
+  if (bus) bus.onmessage = (e: MessageEvent) => {
+    const incoming = e.data as DB | undefined
+    if (!incoming || typeof incoming !== 'object') return
+    // Last write wins: the sender already persisted it, so just adopt and repaint.
+    state = incoming
+    listeners.forEach(l => l())
+  }
+} catch { bus = null }
+
+function commit(next: DB, broadcast = true) {
   state = next
   // localStorage keeps a synchronous mirror so first paint never blocks.
   try { localStorage.setItem(KEY, JSON.stringify(next)) } catch { /* quota */ }
   void idbPut(next)
+  if (broadcast) { try { bus?.postMessage(next) } catch { /* structured-clone limits */ } }
   listeners.forEach(l => l())
 }
 

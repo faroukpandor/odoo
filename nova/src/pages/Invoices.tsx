@@ -4,6 +4,7 @@ import {
   balanceDue, paidAmount, Invoice, InvoiceLine, Payment, getDB,
 } from '../lib/db'
 import { invoiceStatus, openInvoices, openCredits, applyCreditAllocations } from '../lib/payments'
+import { can } from '../lib/team'
 import { tendersFor, paymentInstructions, applyCoupon } from '../lib/tender'
 import { shareText, whatsappLink, mailtoLink } from '../lib/share'
 import QR from '../components/QR'
@@ -36,6 +37,7 @@ export default function Invoices() {
         const i = d.invoices.findIndex(x => x.id === inv.id)
         if (i >= 0) d.invoices[i] = inv
       } else {
+        inv.createdBy = d.currentUserId
         // A coupon only counts once the document it discounts actually exists.
         if (inv.coupon) {
           const c = d.coupons.find(x => x.code.toLowerCase() === inv.coupon!.toLowerCase())
@@ -142,6 +144,7 @@ export default function Invoices() {
       : `${money(due)} refunded on ${inv.number}`)
   }
 
+  const mayWrite = can(db, 'sales.write')
   const rows = db.invoices.filter(i =>
     tab === 'quote' ? i.kind === 'quote'
       : tab === 'credit' ? i.kind === 'credit'
@@ -158,9 +161,9 @@ export default function Invoices() {
           </p>
         </div>
         <div className="nowrap">
-          <button className="btn" onClick={() => setEdit(blank('quote'))}>+ Quotation</button>
-          <button className="btn" onClick={() => setEdit(blank('credit'))}>+ Credit note</button>
-          <button className="btn primary" onClick={() => setEdit(blank('invoice'))}>+ Invoice</button>
+          <button className="btn" disabled={!mayWrite} onClick={() => setEdit(blank('quote'))}>+ Quotation</button>
+          <button className="btn" disabled={!mayWrite} onClick={() => setEdit(blank('credit'))}>+ Credit note</button>
+          <button className="btn primary" disabled={!mayWrite} onClick={() => setEdit(blank('invoice'))}>+ Invoice</button>
         </div>
       </header>
 
@@ -376,7 +379,9 @@ function Preview({ view, onClose }: { view: View; onClose: () => void }) {
             {db.company.logo && <img className="doc-logo" src={db.company.logo} alt="" />}
             <h2>{db.company.name}</h2>
             <div className="muted small">{db.company.address}<br />{db.company.email}
-              {db.company.vatId && <><br />VAT {db.company.vatId}</>}</div>
+              {db.company.legalName && <><br />{db.company.legalName}</>}
+              {db.company.vatId && <><br />{db.company.taxLabel || 'VAT'} {db.company.vatId}</>}
+              {db.company.regNo && <><br />Reg. {db.company.regNo}</>}</div>
           </div>
           <div className="r">
             <h2>{delivery ? 'DELIVERY NOTE' : docTitle[inv.kind]}</h2>

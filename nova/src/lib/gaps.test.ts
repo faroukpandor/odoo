@@ -275,15 +275,15 @@ describe('upgrading an older file', () => {
     ],
   }))
 
-  it('lifts a v5 file to v6 without losing anything', () => {
+  it('lifts a v5 file to the current version without losing anything', () => {
     const d = migrate(v5())
-    expect(d.version).toBe(6)
+    expect(d.version).toBe(7)
     expect(d.company.name).toBe('Old Co')
     expect(d.invoices).toHaveLength(2)
     expect(d.partners).toHaveLength(1)
   })
 
-  it('gives the file the new v6 shapes', () => {
+  it('gives the file the newer shapes', () => {
     const d = migrate(v5())
     expect(Array.isArray(d.recurring)).toBe(true)
     expect(d.recurring).toHaveLength(0)
@@ -298,7 +298,7 @@ describe('upgrading an older file', () => {
 
   it('still rebuilds a fresh file from nothing', () => {
     const d = migrate(null)
-    expect(d.version).toBe(6)
+    expect(d.version).toBe(7)
     expect(d.recurring).toEqual([])
     expect(d.accounts.length).toBeGreaterThan(5)
   })

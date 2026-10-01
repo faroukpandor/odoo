@@ -32,7 +32,7 @@ export default function Banking() {
         const i = d.payments.findIndex(x => x.id === p.id)
         if (i >= 0) d.payments[i] = p
       } else {
-        d.payments.unshift({ ...p, id: uid() })
+        d.payments.unshift({ ...p, id: uid(), createdBy: d.currentUserId })
       }
     })
     toast(p.kind === 'in' ? `Receipt of ${money(p.amount)} recorded` : `Payment of ${money(p.amount)} recorded`)
@@ -249,7 +249,7 @@ function Reconcile() {
         amount: Math.abs(line.amount), method: 'bank', ref: line.description,
         reconciled: true, statementLineId: line.id,
       }
-      d.payments.unshift(p)
+      d.payments.unshift({ ...p, createdBy: d.currentUserId })
       const l = d.statementLines.find(x => x.id === line.id)
       if (l) l.matchedPaymentId = p.id
     })
